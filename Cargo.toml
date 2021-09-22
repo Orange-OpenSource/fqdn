@@ -1,11 +1,11 @@
 [package]
 name = "fqdn"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Xophe <christophe.dousson@orange.com>"]
 edition = "2018"
 license = "MIT"
 description = "FQDN (Fully Qualified Domain Name) structures"
-repository = "https://github.com/Orange-OpenSource/rust-fqdn"
+repository = "https://github.com/XopheD/fqdn"
 keywords = ["fqdn","dns"]
 categories = ["data-structures"]
 

@@ -1,0 +1,28 @@
+[package]
+name = "fqdn"
+version = "0.1.1"
+authors = ["Xophe <christophe.dousson@orange.com>"]
+edition = "2018"
+license = "MIT"
+description = "FQDN (Fully Qualified Domain Name) structures"
+repository = "https://github.com/Orange-OpenSource/rust-fqdn"
+keywords = ["fqdn","dns"]
+categories = ["data-structures"]
+
+[features]
+# By default, this crate allows also underscores ('_') in FQDN
+# and has greater length limits than the RFC allows
+
+# RFC1035 accepts only digits, letters and '-' in FQDN and adds some length limits
+# Moreover, domain label should always start with a letter.
+strict-rfc-1035 = [
+    "domain-label-length-limited-to-63",
+    "domain-name-length-limited-to-255",
+    "domain-name-without-special-chars",
+    "domain-label-should-start-with-letter"
+]
+
+domain-name-length-limited-to-255 = []
+domain-label-length-limited-to-63 = []
+domain-name-without-special-chars = []
+domain-label-should-start-with-letter = []

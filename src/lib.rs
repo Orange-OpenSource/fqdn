@@ -1,3 +1,47 @@
+//! A fully qualified domain name representation
+//!
+//! Notice that a fully qualified domain name (or FQDN) is case-insensivite.
+//! By this way, the implementation of traits like `Hash` or `PartialEq` do the same.
+//!
+//! # Crate features
+//! Some limitations are enforced by the Internet RFC but some of them are defaultly relaxed to fit
+//! with more applicative contexts. Features are available in order to activate or not these
+//! limitations, depending on applicative purposes.
+//!
+//! These features control how the parsing of a String should be done.
+//! Violation of one of these activated limitations raises an error (see [`Error`]).
+//!
+//! ### `domain-label-length-limited-to-63`
+//! The internet standards specifies that each label of a FQDN is limited to 63 characters.
+//! By default, this crate allows up to 256 characters but the 63 limitation could be set
+//! through the activation of this feature.
+//!
+//! ### `domain-name-length-limited-to-255`
+//! The internet standards specifies that the total length of a FQDN is limited to 255 characters.
+//! By default, the only limit is the available memory but the 255 limitation could be set
+//! through the activation of this feature.
+//!
+//! ### `domain-name-without-special-chars`
+//! The internet standards specifies that a FQDN should only contains digits, letters and hyphen (`-`).
+//! But, many network equipment accepts also `_` (underscore) without problems. If this crate is used to design
+//! something like a firewall, it could be necessary to deal with this, so do this crate.
+//! At the contrary, the activation of this feature refuses such special characters.
+//!
+//! ### `domain-label-should-start-with-letter`
+//! The internet standards specifies that FQDN should always start with a letter (nor a digit, nor a hyphen).
+//! By default, this crate accept any of theses characters event at the first position.
+//! The activation of this feature enforces the use of a letter at the beginning of FQDN.
+//!
+//! # RFC 1035
+//! The RFC 1035 has some restrictions that are not activated by default.
+//! The feature `strict-rfc-1035` activates all of them:
+//! * `domain-label-length-limited-to-63`
+//! * `domain-name-length-limited-to-255`
+//! * `domain-name-without-special-chars`
+//! * `domain-label-should-start-with-letter`
+//!
+//! See above for more details.
+//!
 use core::ops;
 use std::ffi::{CStr, CString};
 use std::fmt;
@@ -8,12 +52,45 @@ use std::borrow::Borrow;
 use std::str::FromStr;
 use std::hash::{Hash, Hasher};
 
-/// A type representing an owned, C-compatible, nul-terminated FQDN representation.
+
+/// Parses a list of strings and creates an new
+/// FQDN by concatenating them.
+///
+/// If the trailing dot is missing, it is automatically added.
+///
+/// # Examples
+/// ```
+/// use fqdn::fqdn;
+///
+/// let fqdn = fqdn!("rust-lang", "github.io");
+/// ```
+/// # Panics
+/// If one of the elements is not a valid symbol, the macro panics.
+/// ```should_panic
+/// use fqdn::fqdn;
+///
+/// let s = fqdn!("w@w","fr"); // panics !!
+/// ```
+#[macro_export]
+macro_rules! fqdn {
+    ($($args:expr),*) => {{
+        #[allow(unused_mut)]
+        let mut str = std::string::String::new();
+        $( str += $args; )*
+        match str.as_str().as_bytes().last() {
+            None => $crate::FQDN::default(),
+            Some(b'.') => str.parse::<$crate::FQDN>().unwrap(),
+            _ => (str + ".").parse::<$crate::FQDN>().unwrap(),
+        }
+    }}
+}
+
+/// A FQDN string.
 ///
 /// The inner byte sequence is conformed with the RFC-1035: each label of the FQDN
 /// is prefixed by a length byte and the sequence is nul-terminated.
 ///
-/// For instance, the FQDN `orange.com.` is exactly represented as `b"\x06orange\x03com\x00"`.
+/// For instance, the FQDN `github.com.` is exactly represented as `b"\x06github\x03com\x00"`.
 ///
 /// `FQDN` is to [`&Fqdn`] as [`String`] is to [`&str`]: the former
 /// in each pair are owned data; the latter are borrowed references.
@@ -21,28 +98,114 @@ use std::hash::{Hash, Hasher};
 pub struct FQDN(CString);
 
 
-/// Representation of a borrowed FQDN (as a slice).
+/// A borrowed FQDN (as a slice).
 #[derive(Debug,Eq)]
 pub struct Fqdn(CStr);
 
 impl Fqdn {
 
     /// Checks if this is the top domain.
+    ///
+    /// The human-readable representation of the top domain is the single dot `.`.
     #[inline]
     pub fn is_root(&self) -> bool { self.0.to_bytes_with_nul()[0] == 0 }
 
+    /// Gets the top level domain.
+    ///
+    /// The TLD is the last part of a FQDN.
+    /// For instance, the TLD of `rust-lang.github.io.` is `io.`
+    ///
+    /// If the FQDN is already a TLD, `self` is returned.
+    /// If the FQDN is the top domain, `None` is returned.
+    ///
+    /// # Example
+    /// ```
+    /// # use fqdn::*;
+    /// # use std::str::FromStr;
+    /// let fqdn = fqdn!("rust-lang.github.com.");
+    /// assert_eq![ fqdn.tld(), Some(fqdn!("com.").as_ref()) ];
+    /// ```
+    #[inline]
+    pub fn tld(&self) -> Option<&Fqdn>
+    {
+        let mut index = 0;
+        let mut jump = unsafe { *self.as_bytes().get_unchecked(index) } as usize;
+        if jump == 0 {
+            if self.is_root() { None } else { Some(&self) }
+        } else {
+            loop {
+                let next_index = index + jump + 1;
+                let next_jump = unsafe { *self.as_bytes().get_unchecked(next_index) } as usize;
+                if next_jump == 0 {
+                    return Some ( unsafe { &*(&self.0[index..] as *const CStr as *const Fqdn) } );
+                }
+                index = next_index;
+                jump = next_jump;
+            }
+        }
+    }
+
     /// Extracts a `Fqdn` slice with contains the immediate parent domain.
     ///
+    /// The parent is the domain after remaining the first label.
     /// If it is already the top domain, then `None` is returned.
+    ///
+    /// To iterate over the hierarchy of a FQDN, consider [`Self::hierarchy`]
+    ///
+    /// # Example
+    /// ```
+    /// # use fqdn::*;
+    /// # use std::str::FromStr;
+    /// let fqdn = fqdn!("github.com");
+    /// assert_eq![ fqdn.parent(), Some(fqdn!("com").as_ref()) ];
+    /// assert_eq![ fqdn.parent().unwrap().parent(), None ];
+    /// ```
     #[inline]
     pub fn parent(&self) -> Option<&Fqdn>
     {
-        if self.is_root() {
-            None
-        } else {
-            let len = unsafe { *self.as_bytes().get_unchecked(0) } as usize;
-            Some(unsafe { &*(&self.0[1 + len..] as *const CStr as *const Fqdn) })
+        match unsafe { *self.as_bytes().get_unchecked(0) } as usize {
+            0 => None,
+            len => {
+                let parent = unsafe { &*(&self.0[1+len..] as *const CStr as *const Fqdn) };
+                if parent.is_root() { None } else { Some(parent) }
+            }
         }
+    }
+
+
+    /// Iterates over the parents of the FQDN.
+    /// # Example
+    /// ```
+    /// # use fqdn::*;
+    /// # use std::str::FromStr;
+    /// let fqdn = "rust-lang.github.com.".parse::<FQDN>().unwrap();
+    /// let mut iter = fqdn.hierarchy();
+    /// assert_eq![ iter.next(), Some(fqdn!("rust-lang.github.com.").as_ref()) ];
+    /// assert_eq![ iter.next(), Some(fqdn!("github.com.").as_ref()) ];
+    /// assert_eq![ iter.next(), Some(fqdn!("com.").as_ref()) ];
+    /// assert_eq![ iter.next(), None ];
+    /// ```
+    #[inline]
+    pub fn hierarchy(&self) -> impl '_ + Iterator<Item=&Fqdn>
+    {
+        struct Iter<'a>(&'a Fqdn);
+
+        impl<'a> Iterator for Iter<'a>
+        {
+            type Item = &'a Fqdn;
+            fn next(&mut self) -> Option<<Self as Iterator>::Item>
+            {
+                match unsafe { *self.0.as_bytes().get_unchecked(0) } as usize {
+                    0 => None,
+                    len => {
+                        let current = self.0;
+                        self.0 = unsafe { &*(&self.0.0[1 + len..] as *const CStr as *const Fqdn) };
+                        Some(current)
+                    }
+                }
+            }
+        }
+        Iter(&self)
     }
 
     #[inline]
@@ -95,7 +258,7 @@ impl Fqdn {
     /// with (0,n).
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// # use fqdn::*;
     /// # use std::str::FromStr;
     /// let fqdn = "mail.orange.com.".parse::<FQDN>().unwrap();
@@ -106,7 +269,7 @@ impl Fqdn {
     /// assert_eq![ iter.next(), None ];
     /// ```
     #[inline]
-    pub fn segments(&self) -> impl '_ + Iterator<Item = (usize,usize)>
+    fn segments(&self) -> impl '_ + Iterator<Item = (usize,usize)>
     {
         struct Iter<'a> {
             fqdn: &'a[u8], // nul terminated
@@ -131,48 +294,19 @@ impl Fqdn {
         Iter { fqdn: self.as_bytes(), pos: 0 }
     }
 
-    /// Iterates over the parents of the FQDN.
-    /// # Example
-    /// ```
-    /// # use fqdn::*;
-    /// # use std::str::FromStr;
-    /// let fqdn = "mail.orange.com.".parse::<FQDN>().unwrap();
-    /// let mut iter = fqdn.parents();
-    /// assert_eq![ iter.next(), Some("orange.com.".parse::<FQDN>().unwrap().as_ref()) ];
-    /// assert_eq![ iter.next(), Some("com.".parse::<FQDN>().unwrap().as_ref()) ];
-    /// assert_eq![ iter.next(), None ];
-    /// ```
-    #[inline]
-    pub fn parents(&self) -> impl '_ + Iterator<Item=&Fqdn>
-    {
-        struct Iter<'a>(&'a Fqdn);
-
-        impl<'a> Iterator for Iter<'a>
-        {
-            type Item = &'a Fqdn;
-            fn next(&mut self) -> Option<<Self as Iterator>::Item>
-            {
-                let len = unsafe { *self.0.as_bytes().get_unchecked(0) } as usize;
-                eprintln!("{} {}", len, self.0);
-                self.0 = unsafe { &*(&self.0.0[1 + len..] as *const CStr as *const Fqdn) };
-                if self.0.is_root() { None } else { Some(self.0) }
-            }
-        }
-        Iter(&self)
-    }
 
     /// Iterates over the labels which constitutes the FQDN.
     /// # Example
     /// ```
     /// # use fqdn::*;
     /// # use std::str::FromStr;
-    /// let fqdn = "mail.orange.com.".parse::<FQDN>().unwrap();
+    /// let fqdn = fqdn!("rust-lang.github.com.");
     /// let mut iter = fqdn.labels();
-    /// assert_eq![ iter.next(), Some("mail") ];
-    /// assert_eq![ iter.next(), Some("orange") ];
+    /// assert_eq![ iter.next(), Some("rust-lang") ];
+    /// assert_eq![ iter.next(), Some("github") ];
     /// assert_eq![ iter.next(), Some("com") ];
     /// assert_eq![ iter.next(), None ];
-    /// assert_eq![ iter.next(), None ];
+    /// # assert_eq![ iter.next(), None ];
     /// ```
     #[inline]
     pub fn labels(&self) -> impl '_ + Iterator<Item=&str>
@@ -211,9 +345,22 @@ impl fmt::Display for Fqdn
 
 impl PartialEq for Fqdn
 {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         are_equivalent(&self.as_bytes(), &other.as_bytes())
     }
+}
+
+impl PartialEq<FQDN> for Fqdn
+{
+    #[inline]
+    fn eq(&self, other: &FQDN) -> bool { self.eq(other.as_ref()) }
+}
+
+impl PartialEq<Fqdn> for FQDN
+{
+    #[inline]
+    fn eq(&self, other: &Fqdn) -> bool { self.as_ref().eq(other) }
 }
 
 
@@ -280,6 +427,7 @@ impl Borrow<Fqdn> for FQDN {
 
 impl fmt::Display for FQDN
 {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result { self.as_ref().fmt(f) }
 }
 
@@ -343,6 +491,7 @@ impl FromStr for FQDN
     }
 }
 
+/*
 impl FQDN {
     pub fn from_str_without_trailing_dot(s: &str) -> Result<Self, Error>
     {
@@ -350,7 +499,7 @@ impl FQDN {
         let s = s.to_string() + ".";
         FQDN::from_str(&s)
     }
-}
+}*/
 
 // value of the _ depends if we apply the rfc strictly or not
 #[cfg(feature="domain-name-without-special-chars")] const __: u8 = 0;
@@ -405,24 +554,24 @@ pub(crate) fn are_equivalent(bytes1:&[u8], bytes2:&[u8]) -> bool
     }
 }
 
-/// Error when FQDN building goes wrong
+/// Error when FQDN parsing goes wrong
 #[derive(Debug,Clone,Copy,PartialEq,Eq,Hash)]
 pub enum Error {
 
     /// The trailing dot of the FQDN string is missing.
     ///
-    /// A valid FQDN string should be ended by a dot (e.g. `orange.com.`)
+    /// A valid FQDN string should be ended by a dot (e.g. `github.com.`).
     TrailingDotMissing,
 
     /// The trailing nul byte of the FQDN bytes is missing.
     ///
-    /// A valid FQDN array of bytes should be ended by the nul byte (e.g. `b"\x06orange\x03com\x00"`)
+    /// A valid FQDN array of bytes should be ended by the nul byte (e.g. `b"\x06github\x03com\x00"`)
     TrailingNulCharMissing,
 
     /// An invalid character is found in a label of the FQDN.
     ///
     /// The allowed characters in a FQDN label are letters, digits and `'-'`.
-    /// By default, this crate also accept `'_'` in FQDN but this behavior could be deactivated with
+    /// By default, this crate also accepts `'_'` in FQDN but this behavior could be deactivated with
     /// the `strict-rfc-1035` feature.
     InvalidLabelChar,
 
@@ -449,7 +598,7 @@ pub enum Error {
     /// The returned error contains the start position of the involved label
     LabelDoesNotStartWithLetter,
 
-    /// One label is empty (e.g. starting dot as `.orange.com.` or two following dots as `orange..com.`)
+    /// One label is empty (e.g. starting dot as `.github.com.` or two following dots as `github..com.`)
     EmptyLabel
 }
 
@@ -509,22 +658,22 @@ mod tests {
     fn parsing_string()
     {
         assert!(FQDN::default().is_root());
-        assert!("orange.com.".parse::<FQDN>().is_ok());
+        assert!("github.com.".parse::<FQDN>().is_ok());
 
-        assert_eq!("orange.com".parse::<FQDN>(), Err(fqdn::Error::TrailingDotMissing));
-        assert_eq!("orange..com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
-        assert_eq!(".orange.com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
-        assert_eq!("oran@e.com.".parse::<FQDN>(), Err(fqdn::Error::InvalidLabelChar));
+        assert_eq!("github.com".parse::<FQDN>(), Err(fqdn::Error::TrailingDotMissing));
+        assert_eq!("github..com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
+        assert_eq!(".github.com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
+        assert_eq!("git@ub.com.".parse::<FQDN>(), Err(fqdn::Error::InvalidLabelChar));
 
     }
 
     #[test]
     fn parsing_bytes()
     {
-        assert!(Fqdn::from_bytes(b"\x06orange\x03com\x00").is_ok());
+        assert!(Fqdn::from_bytes(b"\x06github\x03com\x00").is_ok());
 
-        assert_eq!(Fqdn::from_bytes(b"\x06orange\x03com"), Err(fqdn::Error::TrailingNulCharMissing));
-        assert_eq!(Fqdn::from_bytes(b"\x06or@nge\x03com\x00"), Err(fqdn::Error::InvalidLabelChar));
+        assert_eq!(Fqdn::from_bytes(b"\x06github\x03com"), Err(fqdn::Error::TrailingNulCharMissing));
+        assert_eq!(Fqdn::from_bytes(b"\x06g|thub\x03com\x00"), Err(fqdn::Error::InvalidLabelChar));
 
         #[cfg(feature="domain-label-should-start-with-letter")]
         assert_eq!(Fqdn::from_bytes(b"\x04yeah\x0512345\x03com\x00"), Err(fqdn::Error::LabelDoesNotStartWithLetter));
@@ -537,15 +686,15 @@ mod tests {
     {
         assert_eq!(".".parse::<FQDN>().map(|f| f.is_root()), Ok(true));
         assert_eq!(".".parse::<FQDN>().map(|f| f.depth()), Ok(0));
-        assert_eq!("orange.com.".parse::<FQDN>().map(|f| f.depth()), Ok(2));
-        assert_eq!("www.orange.com.".parse::<FQDN>().map(|f| f.depth()), Ok(3));
+        assert_eq!("github.com.".parse::<FQDN>().map(|f| f.depth()), Ok(2));
+        assert_eq!("rust-lang.github.com.".parse::<FQDN>().map(|f| f.depth()), Ok(3));
     }
 
     #[test]
     fn subdomains()
     {
-        let a = "www.orange.com.".parse::<FQDN>().unwrap();
-        let b = "oraNge.com.".parse::<FQDN>().unwrap();
+        let a = "rust-lang.github.com.".parse::<FQDN>().unwrap();
+        let b = "GitHub.com.".parse::<FQDN>().unwrap();
 
         assert!( a.is_subdomain_of(&a));
         assert!( a.is_subdomain_of(&b));

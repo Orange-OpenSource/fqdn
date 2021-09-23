@@ -1,4 +1,11 @@
-# Fully Qualified Domain Name (FQDN)
+# fqdn
+
+[![Crates.io](https://img.shields.io/crates/v/fqdn?style=flat-square)](https://crates.io/crates/fqdn)
+[![Crates.io](https://img.shields.io/crates/d/fqdn?style=flat-square)](https://crates.io/crates/fqdn)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://crates.io/crates/fqdn)
+
+
+**Fully Qualified Domain Name**
 
 This crate allows basic manipulation of FQDN with an inner representation 
 compatible with the [RFC 1035](https://tools.ietf.org/html/rfc1035).

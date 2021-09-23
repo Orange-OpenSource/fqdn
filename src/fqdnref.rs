@@ -7,6 +7,9 @@ use std::hash::{Hash, Hasher};
 
 
 /// A borrowed FQDN (as a slice).
+///
+/// [`&Fqdn`] is to [`FQDN`](`crate::FQDN`) as [`&str`] is to [`String`]: the latter
+/// in each pair are owned data; the former are borrowed references.
 #[derive(Debug,Eq)]
 pub struct Fqdn(pub(crate) CStr);
 
@@ -17,6 +20,38 @@ impl Fqdn {
     /// The human-readable representation of the top domain is the single dot `.`.
     #[inline]
     pub fn is_root(&self) -> bool { self.first_label_length() == 0 }
+
+    /// Checks if this is a top level domain.
+    ///
+    /// A TLD is the last part of a FQDN, so this test is equivalent
+    /// to check is the [depth](Self::depth) of this FQDN equals 1.
+    #[inline]
+    pub fn is_tld(&self) -> bool
+    {
+        let index = self.first_label_length();
+        // it is safe because of the inner structure of FQDN
+        index != 0 && unsafe { *self.as_bytes().get_unchecked(index) } == 0
+    }
+
+    /// Checks if this domain is an descendant of another one.
+    ///
+    /// # Example
+    /// ```
+    /// # use fqdn::*;
+    /// assert![ fqdn!("github.com.").is_subdomain_of(&fqdn!("github.com.")) ];
+    /// assert![ fqdn!("www.rust-lang.github.com").is_subdomain_of(&fqdn!("github.com.")) ];
+    ///
+    /// assert![ ! fqdn!("github.com.").is_subdomain_of(&fqdn!("www.rust-lang.github.com")) ];
+    /// ```
+    #[inline]
+    pub fn is_subdomain_of(&self, parent:&Fqdn) -> bool
+    {
+        // it is safe because of the inner structure of FQDN
+        self.as_bytes().len() >= parent.as_bytes().len() && parent.eq(unsafe {
+            let diff = self.as_bytes().len() - parent.as_bytes().len();
+            &*(&self.0[diff..] as *const CStr as *const Fqdn)
+        })
+    }
 
     /// Gets the top level domain.
     ///
@@ -30,20 +65,11 @@ impl Fqdn {
     /// ```
     /// # use fqdn::*;
     /// # use std::str::FromStr;
-    /// let fqdn = fqdn!("rust-lang.github.com.");
-    /// assert_eq![ fqdn.tld(), Some(fqdn!("com.").as_ref()) ];
-    /// assert_eq![ FQDN::default().tld(), None ];
+    /// assert_eq![ fqdn!("rust-lang.github.com.").tld(), Some(fqdn!("com.").as_ref()) ];
+    /// assert_eq![ fqdn!(".").tld(), None ];
     /// ```
     #[inline]
     pub fn tld(&self) -> Option<&Fqdn> { self.hierarchy().last() }
-
-    #[inline]
-    pub fn is_tld(&self) -> bool
-    {
-        let index = self.first_label_length();
-        // it is safe because of the inner structure of FQDN
-        index != 0 && unsafe { *self.as_bytes().get_unchecked(index) } == 0
-    }
 
     /// Extracts a `Fqdn` slice with contains the immediate parent domain.
     ///
@@ -56,10 +82,9 @@ impl Fqdn {
     /// ```
     /// # use fqdn::*;
     /// # use std::str::FromStr;
-    /// let fqdn = fqdn!("github.com");
-    /// assert_eq![ fqdn.parent(), Some(fqdn!("com").as_ref()) ];
-    /// assert_eq![ fqdn.parent().unwrap().parent(), None ];
-    /// assert_eq![ FQDN::default().parent(), None ];
+    /// assert_eq![ fqdn!("github.com").parent(), Some(fqdn!("com").as_ref()) ];
+    /// assert_eq![ fqdn!("github.com").parent().unwrap().parent(), None ];
+    /// assert_eq![ fqdn!(".").parent(), None ];
     /// ```
     #[inline]
     pub fn parent(&self) -> Option<&Fqdn> { self.hierarchy().skip(1).next() }
@@ -70,7 +95,7 @@ impl Fqdn {
     /// ```
     /// # use fqdn::*;
     /// # use std::str::FromStr;
-    /// let fqdn = "rust-lang.github.com.".parse::<FQDN>().unwrap();
+    /// let fqdn = fqdn!("rust-lang.github.com.");
     /// let mut iter = fqdn.hierarchy();
     /// assert_eq![ iter.next(), Some(fqdn!("rust-lang.github.com.").as_ref()) ];
     /// assert_eq![ iter.next(), Some(fqdn!("github.com.").as_ref()) ];
@@ -101,17 +126,16 @@ impl Fqdn {
         Iter(&self)
     }
 
-    #[inline]
-    pub fn is_subdomain_of(&self, suffix:&Fqdn) -> bool
-    {
-        // it is safe because of the inner structure of FQDN
-        self.as_bytes().len() >= suffix.as_bytes().len() && suffix.eq(unsafe {
-            let diff = self.as_bytes().len() - suffix.as_bytes().len();
-            &*(&self.0[diff..] as *const CStr as *const Fqdn)
-        })
-    }
-
     /// Computes the depth of this domain (i.e. counts the labels)
+    ///
+    /// # Example
+    /// ```
+    /// # use fqdn::*;
+    /// # use std::str::FromStr;
+    /// assert_eq![ fqdn!("rust-lang.github.com.").depth(), 3 ];
+    /// assert_eq![ fqdn!("github.com.").depth(), 2 ];
+    /// assert_eq![ fqdn!(".").depth(), 0 ];
+    /// ```
     #[inline]
     pub fn depth(&self) -> usize { self.hierarchy().count() }
 
@@ -161,6 +185,7 @@ impl Fqdn {
         )
     }
 
+    // for internal use
     #[inline]
     fn first_label_length(&self) -> usize {
         // this is safe because of the inner structure of FQDN...

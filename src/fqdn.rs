@@ -17,7 +17,7 @@ use crate::*;
 ///
 /// For instance, the FQDN `github.com.` is exactly represented as `b"\x06github\x03com\x00"`.
 ///
-/// `FQDN` is to [`&Fqdn`] as [`String`] is to [`&str`]: the former
+/// [`FQDN`] is to [`&Fqdn`](`crate::Fqdn`) as [`String`] is to [`&str`]: the former
 /// in each pair are owned data; the latter are borrowed references.
 #[derive(Debug,Clone,Eq,Default)]
 pub struct FQDN(pub(crate) CString);

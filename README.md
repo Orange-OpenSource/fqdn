@@ -1,9 +1,9 @@
 # fqdn
 
-[![Crates.io](https://img.shields.io/crates/v/fqdn?style=flat-square)](https://crates.io/crates/fqdn)
-[![Crates.io](https://img.shields.io/crates/d/fqdn?style=flat-square)](https://crates.io/crates/fqdn)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](https://crates.io/crates/fqdn)
-
+[![Crates.io](https://img.shields.io/crates/v/fqdn?style=flat)](https://crates.io/crates/fqdn)
+[![Crates.io](https://img.shields.io/crates/d/fqdn?style=flat)](https://crates.io/crates/fqdn)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat)](https://crates.io/crates/fqdn)
+[![Docs](https://img.shields.io/docsrs/fqdn)](https://docs.rs/fqdn)
 
 **Fully Qualified Domain Name**
 

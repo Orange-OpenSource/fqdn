@@ -8,8 +8,8 @@ use std::hash::{Hash, Hasher};
 
 /// A borrowed FQDN (as a slice).
 ///
-/// [`&Fqdn`] is to [`FQDN`](`crate::FQDN`) as [`&str`] is to [`String`]: the latter
-/// in each pair are owned data; the former are borrowed references.
+/// [`&Fqdn`](`crate::Fqdn`) is to [`FQDN`](`crate::FQDN`) as [`&str`] is to [`String`]:
+/// the former in each pair are borrowed references; the latter are owned data.
 #[derive(Debug,Eq)]
 pub struct Fqdn(pub(crate) CStr);
 
@@ -21,16 +21,23 @@ impl Fqdn {
     #[inline]
     pub fn is_root(&self) -> bool { self.first_label_length() == 0 }
 
-    /// Checks if this is a top level domain.
+    /// Checks if this is a top level domain (TLD).
     ///
     /// A TLD is the last part of a FQDN, so this test is equivalent
     /// to check is the [depth](Self::depth) of this FQDN equals 1.
+    ///
+    /// # Example
+    /// ```
+    /// # use fqdn::*;
+    /// assert![ ! fqdn!("github.com.").is_tld() ];
+    /// assert![ fqdn!("com").is_tld() ];
+    /// ```
     #[inline]
     pub fn is_tld(&self) -> bool
     {
         let index = self.first_label_length();
         // it is safe because of the inner structure of FQDN
-        index != 0 && unsafe { *self.as_bytes().get_unchecked(index) } == 0
+        index != 0 && unsafe { *self.as_bytes().get_unchecked(index+1) } == 0
     }
 
     /// Checks if this domain is an descendant of another one.
@@ -139,6 +146,24 @@ impl Fqdn {
     #[inline]
     pub fn depth(&self) -> usize { self.hierarchy().count() }
 
+    /// Builds a FQDN from a byte sequence.
+    ///
+    /// If the byte sequence does not follow the rules, an error is produced.
+    /// See [`Error`] for more details on errors.
+    ///
+    /// If one is sure that the sequence matches all the rules, then the unchecking version
+    ///  [`Self::from_bytes_unchecked'] could be use to be more efficient.
+    ///
+    /// # Example
+    /// ```
+    /// # use fqdn::*;
+    /// # use std::str::FromStr;
+    /// assert_eq![ Fqdn::from_bytes(b"\x06crates\x02io\x00"), Ok(fqdn!("crates.io.").as_ref()) ];
+    ///
+    /// assert_eq![ Fqdn::from_bytes(b"\x06crates\x02io"),     Err(Error::TrailingNulCharMissing) ];
+    /// assert_eq![ Fqdn::from_bytes(b"\x06cr@tes\x02io\x00"), Err(Error::InvalidLabelChar) ];
+    /// assert_eq![ Fqdn::from_bytes(b"\x02crates\x02io\x00"), Err(Error::InvalidStructure) ];
+    /// ```
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<&Self,Error>
     {
@@ -150,15 +175,47 @@ impl Fqdn {
             })
     }
 
+    /// Builds without any check a FQDN from a byte sequence.
+    ///
+    /// # Safety
+    /// This function is unsafe because it does not check that the bytes passed to it are valid and are well-structured.
+    /// It means that:
+    /// * each label starts with a byte indicating its length
+    /// * the bytes sequence ends with a nul-byte
+    /// * only allowed ASCII characters are present in labels
+    /// * the size limits should be respected
+    ///
+    /// If one of these constraints is violated, it may cause memory unsafety issues with future users of the FQDN.
+    ///
+    /// Consider [`Self::from_bytes'] for a safe version of this function.
+    ///
+    /// # Example
+    /// ```
+    /// # use fqdn::*;
+    /// let crates = unsafe {
+    ///     Fqdn::from_bytes_unchecked(b"\x06crates\x02io\x00")
+    /// };
+    /// assert_eq![ *crates, fqdn!("crates.io.") ];
+    /// ```
     #[inline]
     pub unsafe fn from_bytes_unchecked(bytes: &[u8]) -> &Self
     {
         &*(CStr::from_bytes_with_nul_unchecked(bytes) as *const CStr as *const Fqdn)
     }
 
+    /// Returns the complete byte sequence of the FQDN.
+    ///
+    /// The returned sequence is terminated by the nul byte.
+    ///
+    /// # Example
+    /// ```
+    /// # use fqdn::*;
+    /// assert_eq![ fqdn!("crates.io.").as_bytes(),  b"\x06crates\x02io\x00" ];
+    /// ```
     #[inline]
     pub fn as_bytes(&self) -> &[u8] { self.0.to_bytes_with_nul() }
 
+    /// Returns the FQDN as a C string.
     #[inline]
     pub fn as_c_str(&self) -> &CStr { &self.0 }
 

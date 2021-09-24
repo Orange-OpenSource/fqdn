@@ -133,6 +133,8 @@ mod tests {
         assert!( a.is_subdomain_of(&a));
         assert!( a.is_subdomain_of(&b));
         assert!( !b.is_subdomain_of(&a));
+
+        assert!( fqdn!("com").is_tld() );
     }
 }
 

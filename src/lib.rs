@@ -97,8 +97,7 @@ mod tests {
         assert_eq!("github.com".parse::<FQDN>(), Err(fqdn::Error::TrailingDotMissing));
         assert_eq!("github..com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
         assert_eq!(".github.com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
-        assert_eq!("git@ub.com.".parse::<FQDN>(), Err(fqdn::Error::InvalidLabelChar));
-
+        assert_eq!("git@ub.com.".parse::<FQDN>(), Err(fqdn::Error::InvalidLabelChar));ty
     }
 
     #[test]
@@ -111,7 +110,6 @@ mod tests {
 
         #[cfg(feature="domain-label-should-start-with-letter")]
         assert_eq!(Fqdn::from_bytes(b"\x04yeah\x0512345\x03com\x00"), Err(fqdn::Error::LabelDoesNotStartWithLetter));
-
     }
 
 

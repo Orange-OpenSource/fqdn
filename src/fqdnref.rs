@@ -152,7 +152,7 @@ impl Fqdn {
     /// See [`Error`] for more details on errors.
     ///
     /// If one is sure that the sequence matches all the rules, then the unchecking version
-    ///  [`Self::from_bytes_unchecked'] could be use to be more efficient.
+    ///  [`Self::from_bytes_unchecked`] could be use to be more efficient.
     ///
     /// # Example
     /// ```
@@ -187,7 +187,7 @@ impl Fqdn {
     ///
     /// If one of these constraints is violated, it may cause memory unsafety issues with future users of the FQDN.
     ///
-    /// Consider [`Self::from_bytes'] for a safe version of this function.
+    /// Consider [`Self::from_bytes`] for a safe version of this function.
     ///
     /// # Example
     /// ```
@@ -266,10 +266,14 @@ impl fmt::Display for Fqdn
             f.write_char('.')
         } else {
             let mut iter = self.labels();
-            iter.try_for_each(|s| {
-                f.write_str(s)?;
-                f.write_char('.')
-            })
+
+            #[cfg(feature="domain-name-should-have-trailing-dot")] {
+                iter.try_for_each(|s| { f.write_str(s)?; f.write_char('.') })
+            }
+            #[cfg(not(feature="domain-name-should-have-trailing-dot"))] {
+                f.write_str(iter.next().unwrap())?;
+                iter.try_for_each(|s| { f.write_char('.')?; f.write_str(s)  })
+            }
         }
     }
 }

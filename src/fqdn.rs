@@ -107,11 +107,6 @@ impl FromStr for FQDN
         // check against 255 since we expected the trailing dot
         #[cfg(feature="domain-name-length-limited-to-255")]
         if s.len() > 255 {
-            return Err(Error::TooLongDomainName { len: s.len() })
-        }
-        // if unlimited, then the radix trie limits it to u32::MAX
-        #[cfg(not(feature="domain-name-length-limited-to-255"))]
-        if s.len() > u32::MAX as usize {
             return Err(Error::TooLongDomainName)
         }
 
@@ -124,11 +119,17 @@ impl FromStr for FQDN
                 .map(|(n,_)| n);
 
             match stop {
+                #[cfg(feature="domain-name-should-have-trailing-dot")]
                 None if toparse.is_empty() => { // yes, parsing is done !
                     return Ok(Self(unsafe { CString::from_vec_unchecked(bytes)}))
                 }
+                #[cfg(feature="domain-name-should-have-trailing-dot")]
                 None => {
                     return Err(Error::TrailingDotMissing)
+                }
+                #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
+                None => { // yes, parsing is done !
+                    return Ok(Self(unsafe { CString::from_vec_unchecked(bytes)}))
                 }
                 Some(0) if s.len() == 1 => {
                     return Ok(Self(CString::default()));
@@ -157,13 +158,3 @@ impl FromStr for FQDN
         }
     }
 }
-
-/*
-impl FQDN {
-    pub fn from_str_without_trailing_dot(s: &str) -> Result<Self, Error>
-    {
-        // to improve (i.e. without creating a string)
-        let s = s.to_string() + ".";
-        FQDN::from_str(&s)
-    }
-}*/

@@ -1,6 +1,6 @@
 [package]
 name = "fqdn"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["Xophe <christophe.dousson@orange.com>"]
 edition = "2018"
 license = "MIT"
@@ -19,10 +19,12 @@ strict-rfc-1035 = [
     "domain-label-length-limited-to-63",
     "domain-name-length-limited-to-255",
     "domain-name-without-special-chars",
-    "domain-label-should-start-with-letter"
+    "domain-label-should-start-with-letter",
+    "domain-name-should-have-trailing-dot"
 ]
 
 domain-name-length-limited-to-255 = []
 domain-label-length-limited-to-63 = []
 domain-name-without-special-chars = []
 domain-label-should-start-with-letter = []
+domain-name-should-have-trailing-dot = []

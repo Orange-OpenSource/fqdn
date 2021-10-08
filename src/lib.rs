@@ -1,7 +1,7 @@
 //! A fully qualified domain name representation
 //!
-//! Notice that a fully qualified domain name (or FQDN) is case-insensivite.
-//! By this way, the implementation of traits like `Hash` or `PartialEq` do the same.
+//! Notice that a fully qualified domain name (or FQDN) is case-insensitive.
+//! So the implementation of traits like `Hash` or `PartialEq` do the same.
 //!
 //! # Crate features
 //! Some limitations are enforced by the Internet RFC but some of them are defaultly relaxed to fit
@@ -32,6 +32,11 @@
 //! By default, this crate accept any of theses characters event at the first position.
 //! The activation of this feature enforces the use of a letter at the beginning of FQDN.
 //!
+//! ### `domain-label-should-have-trailing-dot`
+//! The internet standards specifies that the human readable representation of FQDN should always end with a dot.
+//! If this feature is activated, then parsing or printing a FQDN strictly apply this rule. By default,
+//! these behaviors are more laxist.
+//!
 //! # RFC 1035
 //! The RFC 1035 has some restrictions that are not activated by default.
 //! The feature `strict-rfc-1035` activates all of them:
@@ -39,6 +44,7 @@
 //! * `domain-name-length-limited-to-255`
 //! * `domain-name-without-special-chars`
 //! * `domain-label-should-start-with-letter`
+//! * `domain-label-should-have-trailing-dot`
 //!
 //! See above for more details.
 //!
@@ -70,11 +76,11 @@ macro_rules! fqdn {
     ($($args:expr),*) => {{
         #[allow(unused_mut)]
         let mut str = std::string::String::new();
-        $( str += $args; )*
+        $( str += "."; str += $args; )*
         match str.as_str().as_bytes().last() {
             None => $crate::FQDN::default(),
-            Some(b'.') => str.parse::<$crate::FQDN>().unwrap(),
-            _ => (str + ".").parse::<$crate::FQDN>().unwrap(),
+            Some(b'.') => str[1..].parse::<$crate::FQDN>().unwrap(),
+            _ => (str + ".")[1..].parse::<$crate::FQDN>().unwrap(),
         }
     }}
 }
@@ -94,10 +100,12 @@ mod tests {
         assert!(FQDN::default().is_root());
         assert!("github.com.".parse::<FQDN>().is_ok());
 
+        #[cfg(feature="domain-name-should-have-trailing-dot")]
         assert_eq!("github.com".parse::<FQDN>(), Err(fqdn::Error::TrailingDotMissing));
+
         assert_eq!("github..com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
         assert_eq!(".github.com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
-        assert_eq!("git@ub.com.".parse::<FQDN>(), Err(fqdn::Error::InvalidLabelChar));ty
+        assert_eq!("git@ub.com.".parse::<FQDN>(), Err(fqdn::Error::InvalidLabelChar));
     }
 
     #[test]
@@ -133,6 +141,8 @@ mod tests {
         assert!( !b.is_subdomain_of(&a));
 
         assert!( fqdn!("com").is_tld() );
+        assert_eq!( a, fqdn!("rust-lang","github","com") );
+
     }
 }
 

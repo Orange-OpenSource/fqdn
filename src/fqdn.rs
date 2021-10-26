@@ -119,7 +119,6 @@ impl FromStr for FQDN
                 .map(|(n,_)| n);
 
             match stop {
-                #[cfg(feature="domain-name-should-have-trailing-dot")]
                 None if toparse.is_empty() => { // yes, parsing is done !
                     return Ok(Self(unsafe { CString::from_vec_unchecked(bytes)}))
                 }
@@ -127,8 +126,22 @@ impl FromStr for FQDN
                 None => {
                     return Err(Error::TrailingDotMissing)
                 }
+                #[cfg(all(not(feature="domain-name-should-have-trailing-dot"),not(feature="domain-label-length-limited-to-63")))]
+                None if toparse.len() > 255 => {
+                    return Err(Error::TooLongLabel);
+                }
+                #[cfg(all(not(feature="domain-name-should-have-trailing-dot"),feature="domain-label-length-limited-to-63"))]
+                None if toparse.len() > 63 => {
+                    return Err(Error::TooLongLabel);
+                }
                 #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
-                None => { // yes, parsing is done !
+                None  => { // yes, parsing is done !
+                    bytes.push(toparse.len() as u8);
+                    (0..toparse.len()).into_iter().try_for_each(|i| {
+                        let c = unsafe { *toparse.get_unchecked(i) };
+                        crate::check::check_char(i == 0, c)?;
+                        Ok(bytes.push(c))
+                    })?;
                     return Ok(Self(unsafe { CString::from_vec_unchecked(bytes)}))
                 }
                 Some(0) if s.len() == 1 => {

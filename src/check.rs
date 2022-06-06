@@ -77,6 +77,7 @@ pub enum Error {
     ///
     /// Typically, the length bytes of labels are not consistent.
     InvalidStructure,
+
     /// The name of the domain is too long
     ///
     /// By default, there is no limit except if the `strict-rfc-1035` feature is selected and
@@ -98,6 +99,28 @@ pub enum Error {
 
     /// One label is empty (e.g. starting dot as `.github.com.` or two following dots as `github..com.`)
     EmptyLabel
+}
+
+impl std::error::Error for Error { }
+
+use std::fmt;
+use std::fmt::{Debug, Formatter};
+
+impl fmt::Display for Error {
+
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(
+            match self {
+                Error::TrailingDotMissing => "the trailing dot of the FQDN string is missing",
+                Error::TrailingNulCharMissing => "the trailing nul byte of the FQDN bytes is missing",
+                Error::InvalidLabelChar => "invalid char found in FQDN",
+                Error::InvalidStructure => "invalid FQDN byte sequence",
+                Error::TooLongDomainName => "too long FQDN",
+                Error::TooLongLabel => "too long label found in FQDN",
+                Error::LabelDoesNotStartWithLetter => "FQDN label does not start with a letter",
+                Error::EmptyLabel => "empty label found in FQDN",
+            })
+    }
 }
 
 // Checks if the bytes are really a FQDN (without nul char)

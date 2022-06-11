@@ -1,11 +1,12 @@
 [package]
 name = "fqdn"
-version = "0.1.10"
+version = "0.2.0"
 authors = ["Xophe <christophe.dousson@orange.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "FQDN (Fully Qualified Domain Name)"
 repository = "https://github.com/XopheD/fqdn"
+documentation = "https://docs.rs/fqdn"
 keywords = ["fqdn","dns"]
 categories = ["data-structures"]
 

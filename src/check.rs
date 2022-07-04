@@ -104,7 +104,7 @@ pub enum Error {
 impl std::error::Error for Error { }
 
 use std::fmt;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 
 impl fmt::Display for Error {
 
@@ -123,12 +123,12 @@ impl fmt::Display for Error {
     }
 }
 
-// Checks if the bytes are really a FQDN (without nul char)
+// Checks if the bytes are really a FQDN (without a trailing nul char)
 pub(crate) fn check_byte_sequence(bytes: &[u8]) -> Result<(),Error>
 {
-    // check against 256 since we have the trailing char and the first label length to consider
+    // check against 255 since we have not the trailing char and the first label length to consider
     #[cfg(feature="domain-name-length-limited-to-255")]
-    if bytes.len() > 256 {
+    if bytes.len() > 255 {
         return Err(Error::TooLongDomainName)
     }
     // if unlimited, then the radix trie limits it to u32::MAX
@@ -137,34 +137,69 @@ pub(crate) fn check_byte_sequence(bytes: &[u8]) -> Result<(),Error>
         return Err(Error::TooLongDomainName)
     }
 
-    match bytes.last() {
-        Some(0) => {
-            let mut iter = bytes.iter();
-            let remaining = bytes.len() - 1;
-            while let Some(&c) = iter.next() {
-                if remaining < c as usize {
-                    return Err(Error::InvalidStructure)
-                }
-                #[cfg(feature="domain-label-length-limited-to-63")]
-                if c > 63 {
-                    return Err(Error::TooLongLabel)
-                }
-                (0..c as usize).into_iter().try_for_each(|c| Ok({check_char(c==0, *iter.next().unwrap())?;}))?;
+    let mut iter = bytes.iter();
+    let mut remaining = bytes.len() - 1;
+
+    loop {
+        match iter.next() {
+            None => {}
+            Some(0) => {}
+            #[cfg(feature="domain-label-length-limited-to-63")]
+            Some(&l) if l > 63 => {
+
             }
-            Ok(())
         }
-        Some(_) => Err(Error::TrailingNulCharMissing),
-        None => Err(Error::TrailingNulCharMissing),
+    }
+
+    while let Some(&sublen) = iter.next() {
+        if remaining < sublen as usize {
+            return Err(Error::InvalidStructure)
+        }
+        #[cfg(feature="domain-label-length-limited-to-63")]
+        if sublen > 63 {
+            return Err(Error::TooLongLabel)
+        }
+        if sublen == 0 {
+            return Err(Error::InvalidStructure)
+        }
+        #[cfg(feature="domain-label-should-start-with-letter")]
+        if sublen > 0 {
+            check_is_letter(iter.next().unwrap())?;
+            for i in 1..sublen {
+                check_any_char(iter.next().unwrap())?;
+            }
+        }
+        #[cfg(not(feature="domain-label-should-start-with-letter"))]
+        for i in 0..sublen {
+            check_any_char(iter.next().unwrap())?;
+        }
+    }
+
+    if remaining == 0 {
+        Ok(())
+    } else {
+        // a nul
+
     }
 
 }
 
-pub(crate) fn check_char(_first: bool, c: u8) -> Result<u8,Error>
+#[inline]
+#[cfg(feature="domain-label-should-start-with-letter")]
+pub(crate) fn check_is_letter(c: &u8) -> Result<(),Error>
 {
-    match ALPHABET[c as usize] {
+    match ALPHABET[*c as usize] {
         0 => Err(Error::InvalidLabelChar),
-        #[cfg(feature="domain-label-should-start-with-letter")]
-        _ if _first && !c.is_ascii_alphabetic() => Err(Error::LabelDoesNotStartWithLetter),
-        n => Ok(n)
+        n if n < ALPHABET['a'] || n > ALPHABET['z'] => Err(Error::LabelDoesNotStartWithLetter),
+        n => Ok(())
+    }
+}
+
+#[inline]
+pub(crate) fn check_any_char(c: &u8) -> Result<(),Error>
+{
+    match ALPHABET[*c as usize] {
+        0 => Err(Error::InvalidLabelChar),
+        n => Ok(())
     }
 }

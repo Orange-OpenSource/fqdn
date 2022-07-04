@@ -9,6 +9,7 @@ use std::str::FromStr;
 use std::hash::{Hash, Hasher};
 
 use crate::*;
+use crate::check::*;
 
 /// A FQDN string.
 ///
@@ -22,7 +23,26 @@ use crate::*;
 #[derive(Debug,Clone,Eq,Default)]
 pub struct FQDN(pub(crate) CString);
 
+impl FQDN
+{
+    fn from_vec(bytes: Vec<u8>) ->  Result<FQDN, Self::Error>
+    {
+        crate::check::check_byte_sequence(bytes.as_slice())
+            .map(|_| FQDN(unsafe{CString::from_vec_unchecked(bytes)}))
+    }
 
+    fn from_vec_with_nul(mut bytes: Vec<u8>) -> Result<FQDN, Self::Error>
+    {
+        match bytes.last() {
+            Some(0) => {
+                bytes.pop(); // remaining trailing nul char
+                FQDN::from_vec(bytes)
+            }
+            _ => Err(Error::TrailingNulCharMissing)
+        }
+    }
+
+}
 impl AsRef<Fqdn> for FQDN
 {
     #[inline]
@@ -74,18 +94,6 @@ impl TryInto<FQDN> for CString
     }
 }
 
-impl TryInto<FQDN> for Vec<u8>
-{
-    type Error = Error;
-    fn try_into(mut self) -> Result<FQDN, Self::Error> {
-        crate::check::check_byte_sequence(self.as_slice())
-            .map(|_| {
-                self.pop(); // pops the terminated last nul char since
-                // from_vec_unchecked will add a new one...
-                FQDN(unsafe{CString::from_vec_unchecked(self)})
-            })
-    }
-}
 
 impl Borrow<Fqdn> for FQDN {
     #[inline]
@@ -110,64 +118,56 @@ impl FromStr for FQDN
             return Err(Error::TooLongDomainName)
         }
 
-        let mut bytes = Vec::with_capacity(s.len()+1);
-        let mut toparse = s.as_bytes();
-        loop {
-            // search next dot...
-            let stop = toparse.into_iter().enumerate()
-                .find(|(_,&c)| c == '.' as u8)
-                .map(|(n,_)| n);
-
-            match stop {
-                None if toparse.is_empty() => { // yes, parsing is done !
-                    return Ok(Self(unsafe { CString::from_vec_unchecked(bytes)}))
-                }
+        // check the trailing dot and remove it
+        // (the empty FQDN '.' is also managed here)
+        let s = s.as_bytes();
+        let toparse =  match s.last() {
+            None => {
                 #[cfg(feature="domain-name-should-have-trailing-dot")]
-                None => {
-                    return Err(Error::TrailingDotMissing)
-                }
-                #[cfg(all(not(feature="domain-name-should-have-trailing-dot"),not(feature="domain-label-length-limited-to-63")))]
-                None if toparse.len() > 255 => {
-                    return Err(Error::TooLongLabel);
-                }
-                #[cfg(all(not(feature="domain-name-should-have-trailing-dot"),feature="domain-label-length-limited-to-63"))]
-                None if toparse.len() > 63 => {
-                    return Err(Error::TooLongLabel);
-                }
+                return Err(Error::TrailingDotMissing);
                 #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
-                None  => { // yes, parsing is done !
-                    bytes.push(toparse.len() as u8);
-                    (0..toparse.len()).into_iter().try_for_each(|i| {
-                        let c = unsafe { *toparse.get_unchecked(i) };
-                        crate::check::check_char(i == 0, c)?;
-                        Ok(bytes.push(c))
-                    })?;
-                    return Ok(Self(unsafe { CString::from_vec_unchecked(bytes)}))
-                }
-                Some(0) if s.len() == 1 => {
+                return Ok(Self(CString::default()));
+            }
+            Some(&c) if c == '.' as u8 => {
+                // ok, there is a trailing dot
+                if s.len() == 1 {
                     return Ok(Self(CString::default()));
                 }
-                Some(0) => {
-                    return Err(Error::EmptyLabel)
-                }
-                #[cfg(feature="domain-label-length-limited-to-63")]
-                Some(len) if len > 63 => {
-                    return Err(Error::TooLongLabel)
-                }
-                #[cfg(not(feature="domain-label-length-limited-to-63"))]
-                Some(len) if len > 255 => {
-                    return Err(Error::TooLongLabel)
-                }
-                Some(n) => {
-                    bytes.push(n as u8);
-                    (0..n).into_iter().try_for_each(|i| {
-                        let c = unsafe { *toparse.get_unchecked(i) };
-                        crate::check::check_char(i == 0, c)?;
-                        Ok(bytes.push(c))
-                    })?;
-                    toparse = &toparse[n+1..];
-                }
+                &s[..s.len()-1]
             }
-        }
+            _ => {
+                #[cfg(feature="domain-name-should-have-trailing-dot")]
+                return Err(Error::TrailingDotMissing);
+                #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
+                s // no trailing dot to remove
+            }
+        };
+
+        // now, check each FQDN subpart and concatenate them
+        toparse
+            .split(|&c| c == '.' as u8)
+            .try_fold(Vec::with_capacity(s.len()+1),
+            |mut bytes, label|
+                match label.len() {
+                    #[cfg(feature="domain-label-length-limited-to-63")]
+                    l if l > 63 => Err(Error::TooLongLabel),
+                    #[cfg(not(feature="domain-label-length-limited-to-63"))]
+                    l if l > 255 => Err(Error::TooLongLabel),
+                    l => {
+                        let mut iter = label.iter();
+                        #[cfg(feature="domain-label-should-start-with-letter")]
+                        // check the first character (which can’t be a digit in some config)
+                        iter.next().ok_or(Error::EmptyLabel).map(check_is_letter)?;
+                        // check all the other characters...
+                        iter.try_for_each(check_any_char)?;
+                        // and concatenate to the fqdn to build
+                        bytes.push(l as u8); // first, prepend the label length
+                        bytes.extend_from_slice(label);
+                        Ok(bytes)
+                    }
+                })
+            .map(|bytes| {
+                Self(unsafe { CString::from_vec_unchecked(bytes)})
+            })
     }
 }

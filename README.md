@@ -11,7 +11,7 @@ This crate allows basic manipulation of FQDN with an inner representation
 compatible with the [RFC 1035](https://tools.ietf.org/html/rfc1035).
 
 So, all comparisons between character strings (e.g., labels, domain names, etc.)
-are done in a case-insensitive manner. Of course, FQDN hashing should follow this behaviour.
+are done in a case-insensitive manner. Of course, FQDN hashing follows this behaviour.
 
 Notice that this RFC introduces some size limits which are not defaulty
 set by this crate. 

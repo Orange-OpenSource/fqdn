@@ -23,26 +23,7 @@ use crate::check::*;
 #[derive(Debug,Clone,Eq,Default)]
 pub struct FQDN(pub(crate) CString);
 
-impl FQDN
-{
-    fn from_vec(bytes: Vec<u8>) ->  Result<FQDN, Self::Error>
-    {
-        crate::check::check_byte_sequence(bytes.as_slice())
-            .map(|_| FQDN(unsafe{CString::from_vec_unchecked(bytes)}))
-    }
 
-    fn from_vec_with_nul(mut bytes: Vec<u8>) -> Result<FQDN, Self::Error>
-    {
-        match bytes.last() {
-            Some(0) => {
-                bytes.pop(); // remaining trailing nul char
-                FQDN::from_vec(bytes)
-            }
-            _ => Err(Error::TrailingNulCharMissing)
-        }
-    }
-
-}
 impl AsRef<Fqdn> for FQDN
 {
     #[inline]
@@ -94,6 +75,18 @@ impl TryInto<FQDN> for CString
     }
 }
 
+impl TryInto<FQDN> for Vec<u8>
+{
+    type Error = Error;
+    fn try_into(mut self) -> Result<FQDN, Self::Error> {
+        crate::check::check_byte_sequence(self.as_slice())
+            .map(|_| {
+                self.pop(); // pops the terminated last nul char since
+                // from_vec_unchecked will add a new one...
+                FQDN(unsafe{CString::from_vec_unchecked(self)})
+            })
+    }
+}
 
 impl Borrow<Fqdn> for FQDN {
     #[inline]
@@ -149,15 +142,24 @@ impl FromStr for FQDN
             .try_fold(Vec::with_capacity(s.len()+1),
             |mut bytes, label|
                 match label.len() {
+
                     #[cfg(feature="domain-label-length-limited-to-63")]
                     l if l > 63 => Err(Error::TooLongLabel),
+
                     #[cfg(not(feature="domain-label-length-limited-to-63"))]
                     l if l > 255 => Err(Error::TooLongLabel),
+
+                    0 => Err(Error::EmptyLabel),
+
                     l => {
                         let mut iter = label.iter();
+
                         #[cfg(feature="domain-label-should-start-with-letter")]
                         // check the first character (which can’t be a digit in some config)
-                        iter.next().ok_or(Error::EmptyLabel).map(check_is_letter)?;
+                        // (unwrap is safe since we know here that the label is not empty)
+                        iter.next().unwrap().map(check_is_letter)?;
+
+
                         // check all the other characters...
                         iter.try_for_each(check_any_char)?;
                         // and concatenate to the fqdn to build

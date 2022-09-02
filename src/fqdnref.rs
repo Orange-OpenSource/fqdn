@@ -264,7 +264,15 @@ impl fmt::Display for Fqdn
         if self.as_bytes()[0] == 0 { // root domain
             f.write_char('.')
         } else {
-            self.labels().try_for_each(|s| { f.write_str(s)?; f.write_char('.') })
+            let mut iter = self.labels();
+
+            #[cfg(feature="domain-name-should-have-trailing-dot")] {
+                iter.try_for_each(|s| { f.write_str(s)?; f.write_char('.') })
+            }
+            #[cfg(not(feature="domain-name-should-have-trailing-dot"))] {
+                f.write_str(iter.next().unwrap())?;
+                iter.try_for_each(|s| { f.write_char('.')?; f.write_str(s)  })
+            }
         }
     }
 }

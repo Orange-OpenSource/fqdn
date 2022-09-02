@@ -21,3 +21,5 @@ but each of them could be activated independently of the others:
 - names are limited to 255 chars (`domain-name-length-limited-to-255`)
 - labels should start with a letter (`domain-label-should-start-with-letter`)
 - labels should only contain letters, digits and hyphens (`domain-name-without-special-chars`)
+- FQDN should end by a period (`domain-name-should-have-trailing-dot`): notice that activating this feature
+modifies the behaviour of `Display` which adds a period at the end of the FQDN.

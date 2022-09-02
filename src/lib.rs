@@ -105,7 +105,7 @@ mod tests {
         assert_eq!("crates.io".parse::<FQDN>(), Err(fqdn::Error::TrailingDotMissing));
 
         #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
-        assert_eq!("crates.io".parse::<FQDN>().map(|fqdn| fqdn.to_string()), Ok("crates.io.".to_string()));
+        assert_eq!("crates.io".parse::<FQDN>().map(|fqdn| fqdn.to_string()), Ok("crates.io".to_string()));
 
         assert_eq!("github..com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
         assert_eq!(".github.com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));

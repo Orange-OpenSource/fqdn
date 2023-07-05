@@ -120,8 +120,10 @@ mod tests {
         assert_eq!(Fqdn::from_bytes(b"\x06github\x03com"), Err(fqdn::Error::TrailingNulCharMissing));
         assert_eq!(Fqdn::from_bytes(b"\x06g|thub\x03com\x00"), Err(fqdn::Error::InvalidLabelChar));
 
-        #[cfg(feature="domain-label-should-start-with-letter")]
-        assert_eq!(Fqdn::from_bytes(b"\x04yeah\x0512345\x03com\x00"), Err(fqdn::Error::LabelDoesNotStartWithLetter));
+        #[cfg(feature = "domain-label-cannot-start-or-end-with-hyphen")] {
+            assert_eq!(Fqdn::from_bytes(b"\x05-yeah\x0512345\x03com\x00"), Err(fqdn::Error::LabelCannotStartWithHyphen));
+            assert_eq!(Fqdn::from_bytes(b"\x05yeah-\x0512345\x03com\x00"), Err(fqdn::Error::LabelCannotEndWithHyphen));
+        }
     }
 
 
@@ -146,7 +148,6 @@ mod tests {
 
         assert!( fqdn!("com").is_tld() );
         assert_eq!( a, fqdn!("rust-lang","github","com") );
-
     }
 }
 

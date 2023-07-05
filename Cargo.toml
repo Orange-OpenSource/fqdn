@@ -1,6 +1,6 @@
 [package]
 name = "fqdn"
-version = "0.2.3"
+version = "0.3.0"
 authors = ["Xophe <christophe.dousson@orange.com>"]
 edition = "2021"
 license = "MIT"
@@ -12,20 +12,26 @@ categories = ["data-structures"]
 
 [features]
 # By default, this crate allows also underscores ('_') in FQDN
-# and has greater length limits than the RFC allows
+# and has greater length limits than the RFC allows but
+# domain labels can’t start or end with hyphens
+default = [ "domain-label-cannot-start-or-end-with-hyphen" ]
 
-# RFC1035 accepts only digits, letters and '-' in FQDN and adds some length limits
-# Moreover, domain label should always start with a letter.
-strict-rfc-1035 = [
+# Activate all the features to conform to all RFC
+# RFC1035 accepts only digits, letters and '-' in FQDN
+#         labels are 1 to 63 characters long
+#         max length of FQDN including dots is 255 characters
+# RFC952: labels cannot start or end with hyphens
+# RFC1123: labels can start with numbers
+strict-rfc = [
     "domain-label-length-limited-to-63",
     "domain-name-length-limited-to-255",
     "domain-name-without-special-chars",
-    "domain-label-should-start-with-letter",
-    "domain-name-should-have-trailing-dot"
+    "domain-name-should-have-trailing-dot",
+    "domain-label-cannot-start-or-end-with-hyphen"
 ]
 
 domain-name-length-limited-to-255 = []
 domain-label-length-limited-to-63 = []
 domain-name-without-special-chars = []
-domain-label-should-start-with-letter = []
 domain-name-should-have-trailing-dot = []
+domain-label-cannot-start-or-end-with-hyphen = []

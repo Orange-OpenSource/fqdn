@@ -45,7 +45,7 @@ pub(crate) fn are_equivalent(bytes1:&[u8], bytes2:&[u8]) -> bool
             Some(&step) =>  match i2.next() {
                 None => return false, // fqdn have different number of labels
                 Some(&n) if n != step => return false, // labels have different sizes
-                Some(_) => if (0..step as usize).into_iter()// check label characters (according to alphabet)
+                Some(_) => if (0..step as usize) // check label characters (according to alphabet)
                     .any(|_| ALPHABET[*i1.next().unwrap() as usize] != ALPHABET[*i2.next().unwrap() as usize]) { return false; }
             }
         }
@@ -92,10 +92,15 @@ pub enum Error {
     /// then this limit is set to `63` (as said in the RFC).
     TooLongLabel,
 
-    /// One label does not start with a letter
+    /// One label cannot start with a hyphen
     ///
     /// The returned error contains the start position of the involved label
-    LabelDoesNotStartWithLetter,
+    LabelCannotStartWithHyphen,
+
+    /// One label cannot end with a hyphen
+    ///
+    /// The returned error contains the start position of the involved label
+    LabelCannotEndWithHyphen,
 
     /// One label is empty (e.g. starting dot as `.github.com.` or two following dots as `github..com.`)
     EmptyLabel
@@ -117,7 +122,8 @@ impl fmt::Display for Error {
                 Error::InvalidStructure => "invalid FQDN byte sequence",
                 Error::TooLongDomainName => "too long FQDN",
                 Error::TooLongLabel => "too long label found in FQDN",
-                Error::LabelDoesNotStartWithLetter => "FQDN label does not start with a letter",
+                Error::LabelCannotStartWithHyphen => "FQDN label can’t start with a hyphen",
+                Error::LabelCannotEndWithHyphen => "FQDN label can’t end with a hyphen",
                 Error::EmptyLabel => "empty label found in FQDN",
             })
     }
@@ -150,24 +156,33 @@ pub(crate) fn check_byte_sequence(bytes: &[u8]) -> Result<(),Error>
         match iter.next() {
             // sublen does not match with available bytes
             None | Some(0) => return Err(Error::InvalidStructure),
-            Some(&sublen) if sublen as usize > remaining => return Err(Error::InvalidStructure),
+            Some(&sublen) if sublen as usize > remaining => {
+                return Err(Error::InvalidStructure)
+            }
 
             #[cfg(feature="domain-label-length-limited-to-63")]
-            Some(&sublen) if sublen > 63 => return Err(Error::TooLongLabel),
+            Some(&sublen) if sublen > 63 => {
+                return Err(Error::TooLongLabel)
+            }
 
-            #[cfg(feature="domain-label-should-start-with-letter")]
+            #[cfg(feature="domain-label-cannot-start-or-end-with-hyphen")]
             Some(&sublen) => {
-                check_is_letter(iter.next().unwrap())?;
-                for _ in 1..sublen {
-                    check_any_char(iter.next().unwrap())?;
+                if check_any_char(*iter.next().unwrap())? == b'-' {
+                    return Err(Error::LabelCannotStartWithHyphen);
+                }
+                for _ in 1..sublen-1 {
+                    check_any_char(*iter.next().unwrap())?;
+                }
+                if check_any_char(*iter.next().unwrap())? == b'-' {
+                    return Err(Error::LabelCannotEndWithHyphen);
                 }
                 remaining -= sublen as usize + 1;
             }
 
-            #[cfg(not(feature="domain-label-should-start-with-letter"))]
+            #[cfg(not(feature="domain-label-cannot-start-or-end-with-hyphen"))]
             Some(&sublen) => {
                 for _ in 0..sublen {
-                    check_any_char(iter.next().unwrap())?;
+                    check_any_char(*iter.next().unwrap())?;
                 }
                 remaining -= sublen as usize + 1;
             }
@@ -178,22 +193,12 @@ pub(crate) fn check_byte_sequence(bytes: &[u8]) -> Result<(),Error>
     Ok(())
 }
 
-#[inline]
-#[cfg(feature="domain-label-should-start-with-letter")]
-pub(crate) fn check_is_letter(c: &u8) -> Result<(),Error>
-{
-    match ALPHABET[*c as usize] {
-        0 => Err(Error::InvalidLabelChar),
-        n if n < ALPHABET['a'] || n > ALPHABET['z'] => Err(Error::LabelDoesNotStartWithLetter),
-        _ => Ok(())
-    }
-}
 
 #[inline]
-pub(crate) fn check_any_char(c: &u8) -> Result<(),Error>
+pub(crate) fn check_any_char(c: u8) -> Result<u8,Error>
 {
-    match ALPHABET[*c as usize] {
+    match ALPHABET[c as usize] {
         0 => Err(Error::InvalidLabelChar),
-        _ => Ok(())
+        _ => Ok(c)
     }
 }

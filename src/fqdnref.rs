@@ -94,7 +94,7 @@ impl Fqdn {
     /// assert_eq![ fqdn!(".").parent(), None ];
     /// ```
     #[inline]
-    pub fn parent(&self) -> Option<&Fqdn> { self.hierarchy().skip(1).next() }
+    pub fn parent(&self) -> Option<&Fqdn> { self.hierarchy().nth(1) }
 
 
     /// Iterates over the parents of the FQDN.
@@ -130,7 +130,7 @@ impl Fqdn {
                 }
             }
         }
-        Iter(&self)
+        Iter(self)
     }
 
     /// Computes the depth of this domain (i.e. counts the labels)
@@ -281,7 +281,7 @@ impl PartialEq for Fqdn
 {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        crate::check::are_equivalent(&self.as_bytes(), &other.as_bytes())
+        crate::check::are_equivalent(self.as_bytes(), other.as_bytes())
     }
 }
 

@@ -121,7 +121,7 @@ impl FromStr for FQDN
                 #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
                 return Ok(Self(CString::default()));
             }
-            Some(&c) if c == '.' as u8 => {
+            Some(&c) if c == b'.' => {
                 // ok, there is a trailing dot
                 if s.len() == 1 {
                     return Ok(Self(CString::default()));
@@ -138,7 +138,7 @@ impl FromStr for FQDN
 
         // now, check each FQDN subpart and concatenate them
         toparse
-            .split(|&c| c == '.' as u8)
+            .split(|&c| c == b'.')
             .try_fold(Vec::with_capacity(s.len()+1),
             |mut bytes, label|
                 match label.len() {
@@ -154,14 +154,8 @@ impl FromStr for FQDN
                     l => {
                         let mut iter = label.iter();
 
-                        #[cfg(feature="domain-label-should-start-with-letter")]
-                        // check the first character (which can’t be a digit in some config)
-                        // (unwrap is safe since we know here that the label is not empty)
-                        iter.next().unwrap().map(check_is_letter)?;
-
-
                         // check all the other characters...
-                        iter.try_for_each(check_any_char)?;
+                        iter.try_for_each(|&c| { check_any_char(c)?; Ok(())} )?;
                         // and concatenate to the fqdn to build
                         bytes.push(l as u8); // first, prepend the label length
                         bytes.extend_from_slice(label);

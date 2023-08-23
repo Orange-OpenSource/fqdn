@@ -298,3 +298,10 @@ impl Hash for Fqdn
         self.as_bytes().iter().for_each(|c| c.to_ascii_lowercase().hash(state))
     }
 }
+
+
+impl AsRef<Fqdn> for &Fqdn
+{
+    #[inline]
+    fn as_ref(&self) -> &Fqdn { self }
+}

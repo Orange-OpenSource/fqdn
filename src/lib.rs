@@ -149,5 +149,11 @@ mod tests {
         assert!( fqdn!("com").is_tld() );
         assert_eq!( a, fqdn!("rust-lang","github","com") );
     }
+
+    #[test]
+    fn equivalence()
+    {
+        assert_eq!("github.com.".parse::<FQDN>(), "GitHub.com.".parse::<FQDN>());
+    }
 }
 

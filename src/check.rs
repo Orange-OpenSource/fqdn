@@ -36,20 +36,9 @@ pub(crate) const ALPHABET: [u8;256] = [
 
 pub(crate) fn are_equivalent(bytes1:&[u8], bytes2:&[u8]) -> bool
 {
-    let mut i1 = bytes1.iter();
-    let mut i2 = bytes2.iter();
-
-    loop {
-        match i1.next() {
-            None => return i2.next().is_none(),
-            Some(&step) =>  match i2.next() {
-                None => return false, // fqdn have different number of labels
-                Some(&n) if n != step => return false, // labels have different sizes
-                Some(_) => if (0..step as usize) // check label characters (according to alphabet)
-                    .any(|_| ALPHABET[*i1.next().unwrap() as usize] != ALPHABET[*i2.next().unwrap() as usize]) { return false; }
-            }
-        }
-    }
+    let mut i1 = bytes1.iter().map(|&i| ALPHABET[i as usize]);
+    let mut i2 = bytes2.iter().map(|&i| ALPHABET[i as usize]);;
+    i1.cmp(i2) == Ordering::Equal
 }
 
 /// Error when FQDN parsing goes wrong
@@ -108,6 +97,7 @@ pub enum Error {
 
 impl std::error::Error for Error { }
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
 

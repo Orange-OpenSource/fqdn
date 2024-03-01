@@ -4,6 +4,7 @@ use std::fmt::{Formatter, Write};
 
 use crate::*;
 use std::hash::{Hash, Hasher};
+use crate::check::ALPHABET;
 
 
 /// A borrowed FQDN (as a slice).
@@ -280,8 +281,15 @@ impl fmt::Display for Fqdn
 impl PartialEq for Fqdn
 {
     #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        crate::check::are_equivalent(self.as_bytes(), other.as_bytes())
+    fn eq(&self, other: &Self) -> bool
+    {
+        let b1 = self.as_bytes();
+        let b2 = other.as_bytes();
+        (b1.len() == b2.len()) && {
+            let i1 = b1.iter().map(|&i| ALPHABET[i as usize]);
+            let i2 = b2.iter().map(|&i| ALPHABET[i as usize]);
+            i1.eq(i2)
+        }
     }
 }
 

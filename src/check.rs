@@ -11,9 +11,9 @@
 
 // in order to decrease the necessary memory, this table reduces the search space only
 // to allowed chars in FQDN, i.e. a-zA-Z, 0-9 and -.
-// -> underscore is exceptionnally added since it often appears (control plane ?)
+// -> underscore is exceptionally added since it often appears (control plane ?)
 // all the others are treated equally (i.e. as a dot)
-// this is case insensitive (lower and upper case give the same index)
+// this is case-insensitive (lower and upper case give the same index)
 
 pub(crate) const ALPHABET: [u8;256] = [
     0, 0, 0, 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0,   //  16
@@ -34,12 +34,6 @@ pub(crate) const ALPHABET: [u8;256] = [
     0, 0, 0, 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0
 ];
 
-pub(crate) fn are_equivalent(bytes1:&[u8], bytes2:&[u8]) -> bool
-{
-    let mut i1 = bytes1.iter().map(|&i| ALPHABET[i as usize]);
-    let mut i2 = bytes2.iter().map(|&i| ALPHABET[i as usize]);;
-    i1.cmp(i2) == Ordering::Equal
-}
 
 /// Error when FQDN parsing goes wrong
 #[derive(Debug,Clone,Copy,PartialEq,Eq,Hash)]
@@ -97,7 +91,6 @@ pub enum Error {
 
 impl std::error::Error for Error { }
 
-use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Debug;
 

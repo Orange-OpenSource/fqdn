@@ -121,7 +121,7 @@ impl FromStr for FQDN
                 #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
                 return Ok(Self(CString::default()));
             }
-            Some(&c) if c == b'.' => {
+            Some(&b'.') => {
                 // ok, there is a trailing dot
                 if s.len() == 1 {
                     return Ok(Self(CString::default()));

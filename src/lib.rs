@@ -133,7 +133,6 @@ mod tests {
 
             assert!(LENGTH_255[..LENGTH_255.len() - 1].parse::<FQDN>().is_ok());
         }
-
     }
 
     #[test]

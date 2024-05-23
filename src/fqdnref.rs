@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::ffi::CStr;
 use std::fmt;
 use std::fmt::{Formatter, Write};
@@ -251,7 +252,6 @@ impl Fqdn {
     }
 }
 
-
 impl ToOwned for Fqdn {
     type Owned = FQDN;
     #[inline]
@@ -280,7 +280,6 @@ impl fmt::Display for Fqdn
 
 impl PartialEq for Fqdn
 {
-    #[inline]
     fn eq(&self, other: &Self) -> bool
     {
         let b1 = self.as_bytes();
@@ -299,14 +298,35 @@ impl PartialEq<FQDN> for Fqdn
     fn eq(&self, other: &FQDN) -> bool { self.eq(other.as_ref()) }
 }
 
+impl PartialOrd for Fqdn
+{
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+}
+
+impl Ord for Fqdn
+{
+    fn cmp(&self, other: &Self) -> Ordering
+    {
+        let i1 = self.as_bytes().iter().map(|&i| ALPHABET[i as usize]);
+        let i2 = other.as_bytes().iter().map(|&i| ALPHABET[i as usize]);
+        i1.cmp(i2)
+    }
+}
+
+impl PartialOrd<FQDN> for Fqdn
+{
+    #[inline]
+    fn partial_cmp(&self, other: &FQDN) -> Option<Ordering> { self.partial_cmp(other.as_ref()) }
+}
+
 impl Hash for Fqdn
 {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_bytes().iter().for_each(|c| c.to_ascii_lowercase().hash(state))
+        self.as_bytes().iter().for_each(|&i| ALPHABET[i as usize].hash(state))
     }
 }
-
 
 impl AsRef<Fqdn> for &Fqdn
 {

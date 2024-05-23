@@ -5,6 +5,7 @@ use std::fmt::Formatter;
 use std::convert::TryInto;
 
 use std::borrow::Borrow;
+use std::cmp::Ordering;
 use std::str::FromStr;
 use std::hash::{Hash, Hasher};
 
@@ -20,7 +21,7 @@ use crate::check::*;
 ///
 /// [`FQDN`] is to [`&Fqdn`](`crate::Fqdn`) as [`String`] is to [`&str`]: the former
 /// in each pair are owned data; the latter are borrowed references.
-#[derive(Debug,Clone,Eq,Default)]
+#[derive(Debug,Clone,Eq,Ord,Default)]
 pub struct FQDN(pub(crate) CString);
 
 
@@ -58,6 +59,42 @@ impl PartialEq<Fqdn> for FQDN
 {
     #[inline]
     fn eq(&self, other: &Fqdn) -> bool { self.as_ref().eq(other) }
+}
+
+impl PartialOrd for FQDN
+{
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { self.as_ref().partial_cmp(other.as_ref()) }
+
+    #[inline]
+    fn lt(&self, other: &Self) -> bool { self.as_ref().lt(other.as_ref()) }
+
+    #[inline]
+    fn le(&self, other: &Self) -> bool { self.as_ref().le(other.as_ref()) }
+
+    #[inline]
+    fn gt(&self, other: &Self) -> bool { self.as_ref().gt(other.as_ref()) }
+
+    #[inline]
+    fn ge(&self, other: &Self) -> bool { self.as_ref().ge(other.as_ref()) }
+}
+
+impl PartialOrd<Fqdn> for FQDN
+{
+    #[inline]
+    fn partial_cmp(&self, other: &Fqdn) -> Option<Ordering> { self.as_ref().partial_cmp(other) }
+
+    #[inline]
+    fn lt(&self, other: &Fqdn) -> bool { self.as_ref().lt(other) }
+
+    #[inline]
+    fn le(&self, other: &Fqdn) -> bool { self.as_ref().le(other) }
+
+    #[inline]
+    fn gt(&self, other: &Fqdn) -> bool { self.as_ref().gt(other) }
+
+    #[inline]
+    fn ge(&self, other: &Fqdn) -> bool { self.as_ref().ge(other) }
 }
 
 impl From<&Fqdn> for FQDN

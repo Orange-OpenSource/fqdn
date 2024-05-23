@@ -92,6 +92,7 @@ pub use check::Error;
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{BTreeSet, HashSet};
     use crate as fqdn;
     use fqdn::*;
 
@@ -126,6 +127,14 @@ mod tests {
         }
     }
 
+    #[test]
+    fn check_bytes()
+    {
+        let fqdn = Fqdn::from_bytes(b"\x06github\x03com\x00").unwrap();
+        assert_eq!( fqdn.tld().unwrap().as_bytes(), b"\x03com\x00");
+        assert_eq!( &fqdn.as_bytes()[fqdn.as_bytes().len() - 5..], b"\x03com\x00");
+    }
+
 
     #[test]
     fn depth()
@@ -154,6 +163,27 @@ mod tests {
     fn equivalence()
     {
         assert_eq!("github.com.".parse::<FQDN>(), "GitHub.com.".parse::<FQDN>());
+    }
+
+    #[test]
+    fn ordering()
+    {
+        assert!("a.github.com.".parse::<FQDN>().unwrap() < "aa.GitHub.com.".parse::<FQDN>().unwrap());
+        assert!("ab.github.com.".parse::<FQDN>().unwrap() > "aa.github.com.".parse::<FQDN>().unwrap());
+        assert!("ab.GitHub.com.".parse::<FQDN>().unwrap() > "aa.github.com.".parse::<FQDN>().unwrap());
+        assert!("ab.GitHub.com.".parse::<FQDN>().unwrap() > "aa.github.co.".parse::<FQDN>().unwrap());
+
+
+
+        let items = ["github.com.", "a.Github.com.", "a.GitHub.com.", "a.github.com.", "aa.github.com."];
+
+        let ordered = items.iter().map(|s| s.parse::<FQDN>().unwrap())
+            .collect::<BTreeSet<_>>();
+
+        let unordered = items.iter().map(|s| s.parse::<FQDN>().unwrap())
+            .collect::<HashSet<_>>();
+
+        assert_eq!(ordered.len(), unordered.len());
     }
 }
 

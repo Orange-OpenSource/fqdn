@@ -1,6 +1,6 @@
 [package]
 name = "fqdn"
-version = "0.3.6"
+version = "0.3.7"
 authors = ["Xophe <christophe.dousson@orange.com>"]
 edition = "2021"
 license = "MIT"
@@ -17,9 +17,8 @@ categories = ["data-structures"]
 default = [ "domain-label-cannot-start-or-end-with-hyphen" ]
 
 # Activate all the features to conform to all RFC
-# RFC1035 accepts only digits, letters and '-' in FQDN
-#         labels are 1 to 63 characters long
-#         max length of FQDN including dots is 255 characters
+# RFC1035 accepts only digits, letters and '-' in FQDN labels are 1 to 63 chars long
+#         max length of FQDN including null label is 255 chars (i.e. 253 visible chars)
 # RFC952: labels cannot start or end with hyphens
 # RFC1123: labels can start with numbers
 strict-rfc = [

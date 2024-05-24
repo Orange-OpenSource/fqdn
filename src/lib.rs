@@ -1,10 +1,10 @@
 //! A fully qualified domain name representation
 //!
 //! Notice that a fully qualified domain name (FQDN) is case-insensitive.
-//! So the implementation of traits like `Hash` or `PartialEq` do the same.
+//! So the implementation of traits `Hash`, `PartialEq`, `Eq`, `PartialOrd` and `Ord` do the same.
 //!
 //! # Crate features
-//! These features control how the parsing of a String should be done.
+//! These features control how the parsing of a string should be done.
 //! Violation of one of these activated limitations raises an error (see [`Error`]).
 //!
 //! Some limitations are set by the Internet RFC but, by default, some of them are relaxed to fit
@@ -23,24 +23,24 @@
 //! through the activation of this feature.
 //!
 //! ### `domain-name-without-special-chars`
-//! The internet standards specifies that a FQDN should only contains digits, letters and hyphens (`-`).
+//! The internet standards specifies that a FQDN should only contain digits, letters and hyphens (`-`).
 //! But, many network equipment accept also `_` (underscore) without any problem. If this crate is used to design
 //! something like a firewall, it could be necessary to deal with this, so do this feature.
 //! At the contrary, the activation of this feature refuses these special characters.
 //!
 //! ### `domain-label-should-start-with-letter`
 //! The internet standards specifies that FQDN should always start with a letter (nor a digit, nor a hyphen).
-//! By default, this crate accept any of theses characters event at the first position.
+//! By default, this crate accept any of these characters event at the first position.
 //! The activation of this feature forces the use of a letter at the beginning of FQDN.
 //!
 //! ### `domain-label-should-have-trailing-dot`
-//! The internet standards specifies that the human readable representation of FQDN should always end with a dot.
+//! The internet standards specifies that the human-readable representation of FQDN should always end with a dot.
 //! If this feature is activated, then parsing or printing a FQDN strictly apply this rule. By default,
 //! the parsing behavior is more lenient (i.e. the trailing dot could miss).
 //!
-//! # RFC 1035
-//! The RFC 1035 has some restrictions that are not activated by default.
-//! The feature `strict-rfc-1035` activates all of them:
+//! # RFC related to FQDN
+//! The related RFC define some restrictions that are not activated by default.
+//! The feature `strict-rfc` activates all of them, which are:
 //! * `domain-label-length-limited-to-63`
 //! * `domain-name-length-limited-to-255`
 //! * `domain-name-without-special-chars`

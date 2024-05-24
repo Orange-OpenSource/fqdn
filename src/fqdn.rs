@@ -142,12 +142,6 @@ impl FromStr for FQDN
 
     fn from_str(s: &str) -> Result<Self, Self::Err>
     {
-        // check against 255 since we expected the trailing dot
-        #[cfg(feature="domain-name-length-limited-to-255")]
-        if s.len() > 255 {
-            return Err(Error::TooLongDomainName)
-        }
-
         // check the trailing dot and remove it
         // (the empty FQDN '.' is also managed here)
         let s = s.as_bytes();
@@ -172,6 +166,12 @@ impl FromStr for FQDN
                 s // no trailing dot to remove
             }
         };
+
+        // check against 253 since we have the trailing char and the first label length to consider
+        #[cfg(feature="domain-name-length-limited-to-255")]
+        if toparse.len() > 253 {
+            return Err(Error::TooLongDomainName);
+        }
 
         // now, check each FQDN subpart and concatenate them
         toparse

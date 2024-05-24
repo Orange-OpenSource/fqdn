@@ -121,9 +121,8 @@ pub(crate) fn check_byte_sequence(bytes: &[u8]) -> Result<(),Error>
         _ => return Err(Error::TrailingNulCharMissing)
     }
 
-    // check against 256 since we have the trailing char and the first label length to consider
     #[cfg(feature="domain-name-length-limited-to-255")]
-    if bytes.len() > 256 {
+    if bytes.len() > 255 {
         return Err(Error::TooLongDomainName)
     }
     // if unlimited, then the radix trie limits it to u32::MAX

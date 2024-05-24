@@ -111,6 +111,28 @@ mod tests {
         assert_eq!("github..com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
         assert_eq!(".github.com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
         assert_eq!("git@ub.com.".parse::<FQDN>(), Err(fqdn::Error::InvalidLabelChar));
+
+        const LENGTH_256: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.";
+        const LENGTH_255: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.";
+
+        #[cfg(feature="domain-name-length-limited-to-255")]
+        assert_eq!(LENGTH_256.parse::<FQDN>(), Err(fqdn::Error::TooLongDomainName));
+
+        #[cfg(not(feature="domain-name-length-limited-to-255"))]
+        assert!(LENGTH_256.parse::<FQDN>().is_ok());
+
+        assert!(LENGTH_255.parse::<FQDN>().is_ok());
+
+        #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
+        {
+            #[cfg(feature="domain-name-length-limited-to-255")]
+            assert_eq!(LENGTH_256[..LENGTH_256.len() - 1].parse::<FQDN>(), Err(fqdn::Error::TooLongDomainName));
+
+            #[cfg(not(feature="domain-name-length-limited-to-255"))]
+            assert!(LENGTH_256[..LENGTH_256.len() - 1].parse::<FQDN>().is_ok());
+
+            assert!(LENGTH_255[..LENGTH_255.len() - 1].parse::<FQDN>().is_ok());
+        }
     }
 
     #[test]
@@ -125,6 +147,17 @@ mod tests {
             assert_eq!(Fqdn::from_bytes(b"\x05-yeah\x0512345\x03com\x00"), Err(fqdn::Error::LabelCannotStartWithHyphen));
             assert_eq!(Fqdn::from_bytes(b"\x05yeah-\x0512345\x03com\x00"), Err(fqdn::Error::LabelCannotEndWithHyphen));
         }
+
+        const LENGTH_256: &[u8; 256] = b"\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3eaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x00";
+        const LENGTH_255: &[u8; 255] = b"\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3daaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x00";
+
+        #[cfg(feature="domain-name-length-limited-to-255")]
+        assert_eq!(Fqdn::from_bytes(LENGTH_256), Err(fqdn::Error::TooLongDomainName));
+
+        #[cfg(not(feature="domain-name-length-limited-to-255"))]
+        assert!(Fqdn::from_bytes(LENGTH_256).is_ok());
+
+        assert!(Fqdn::from_bytes(LENGTH_255).is_ok());
     }
 
     #[test]

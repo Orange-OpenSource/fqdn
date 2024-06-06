@@ -21,7 +21,7 @@ use crate::check::*;
 ///
 /// [`FQDN`] is to [`&Fqdn`](`crate::Fqdn`) as [`String`] is to [`&str`]: the former
 /// in each pair are owned data; the latter are borrowed references.
-#[derive(Debug,Clone,Eq,Ord,Default)]
+#[derive(Debug,Clone,Eq,Default)]
 pub struct FQDN(pub(crate) CString);
 
 
@@ -64,7 +64,7 @@ impl PartialEq<Fqdn> for FQDN
 impl PartialOrd for FQDN
 {
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { self.as_ref().partial_cmp(other.as_ref()) }
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
 
     #[inline]
     fn lt(&self, other: &Self) -> bool { self.as_ref().lt(other.as_ref()) }
@@ -77,6 +77,12 @@ impl PartialOrd for FQDN
 
     #[inline]
     fn ge(&self, other: &Self) -> bool { self.as_ref().ge(other.as_ref()) }
+}
+
+impl Ord for FQDN
+{
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering { self.as_ref().cmp(other.as_ref()) }
 }
 
 impl PartialOrd<Fqdn> for FQDN

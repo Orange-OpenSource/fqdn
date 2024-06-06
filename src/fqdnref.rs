@@ -317,7 +317,7 @@ impl Ord for Fqdn
 impl PartialOrd<FQDN> for Fqdn
 {
     #[inline]
-    fn partial_cmp(&self, other: &FQDN) -> Option<Ordering> { self.partial_cmp(other.as_ref()) }
+    fn partial_cmp(&self, other: &FQDN) -> Option<Ordering> { dbg!(self.partial_cmp(other.as_ref())) }
 }
 
 impl Hash for Fqdn

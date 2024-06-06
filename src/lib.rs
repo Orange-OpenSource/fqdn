@@ -92,7 +92,8 @@ pub use check::Error;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeSet, HashSet};
+    use std::collections::{BTreeMap, BTreeSet, HashSet};
+    use std::str::FromStr;
     use crate as fqdn;
     use fqdn::*;
 
@@ -206,8 +207,6 @@ mod tests {
         assert!("ab.GitHub.com.".parse::<FQDN>().unwrap() > "aa.github.com.".parse::<FQDN>().unwrap());
         assert!("ab.GitHub.com.".parse::<FQDN>().unwrap() > "aa.github.co.".parse::<FQDN>().unwrap());
 
-
-
         let items = ["github.com.", "a.Github.com.", "a.GitHub.com.", "a.github.com.", "aa.github.com."];
 
         let ordered = items.iter().map(|s| s.parse::<FQDN>().unwrap())
@@ -217,6 +216,22 @@ mod tests {
             .collect::<HashSet<_>>();
 
         assert_eq!(ordered.len(), unordered.len());
+    }
+
+    #[test]
+    fn btreemap()
+    {
+        let hostname = FQDN::from_str("rb-test0.icp1.io").unwrap();
+        let hostname1 = hostname.as_ref();
+        let hostname2 = &fqdn!("rb-test0.icp1.io");
+        println!("h1 {:?}", hostname1.as_bytes());
+        println!("h2 {:?}", hostname2.as_bytes());
+        println!("EQ {:?}", hostname1 == hostname2);
+
+        let mut map = BTreeMap::new();
+        map.insert(hostname.clone(), 23);
+        dbg!(map.get(hostname1));
+        dbg!(map.get(hostname2));
     }
 }
 

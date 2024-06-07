@@ -78,11 +78,16 @@ macro_rules! fqdn {
     ($($args:expr),*) => {{
         #[allow(unused_mut)]
         let mut str = std::string::String::new();
-        $( str += "."; str += $args; )*
-        match str.as_str().as_bytes().last() {
-            None => $crate::FQDN::default(),
-            Some(b'.') => str[1..].parse::<$crate::FQDN>().unwrap(),
-            _ => (str + ".")[1..].parse::<$crate::FQDN>().unwrap(),
+        $( str += $args; str += "."; )*
+        if str.as_bytes().len() <= 1 {
+            $crate::FQDN::default()
+        } else {
+            let penultimate = str.as_bytes().len() - 2;
+            // SAFETY: the length is checked just before
+            match unsafe { str.as_bytes().get_unchecked(penultimate) } {
+                b'.' => str[..(penultimate+1)].parse::<$crate::FQDN>().unwrap(),
+                _ => str.parse::<$crate::FQDN>().unwrap()
+            }
         }
     }}
 }

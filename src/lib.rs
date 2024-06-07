@@ -52,6 +52,7 @@
 mod fqdnref;
 mod fqdn;
 mod check;
+mod eqcmp;
 
 
 /// Parses a list of strings and creates an new
@@ -92,8 +93,7 @@ pub use check::Error;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeMap, BTreeSet, HashSet};
-    use std::str::FromStr;
+    use std::collections::{BTreeSet, HashSet};
     use crate as fqdn;
     use fqdn::*;
 
@@ -196,7 +196,14 @@ mod tests {
     #[test]
     fn equivalence()
     {
-        assert_eq!("github.com.".parse::<FQDN>(), "GitHub.com.".parse::<FQDN>());
+        let fqdn1 = "github.com.".parse::<FQDN>().unwrap();
+        let fqdn2 = "GitHub.com.".parse::<FQDN>().unwrap();
+        assert_eq!(fqdn1, fqdn2);
+        assert_eq!(&fqdn1, &fqdn2);
+        assert_eq!(fqdn1.as_ref(), fqdn2.as_ref());
+        assert_eq!(&fqdn1, fqdn2.as_ref());
+        assert_eq!(fqdn1.as_ref(), &fqdn2);
+        assert_eq!(fqdn1, *fqdn2.as_ref());
     }
 
     #[test]
@@ -216,22 +223,6 @@ mod tests {
             .collect::<HashSet<_>>();
 
         assert_eq!(ordered.len(), unordered.len());
-    }
-
-    #[test]
-    fn btreemap()
-    {
-        let hostname = FQDN::from_str("rb-test0.icp1.io").unwrap();
-        let hostname1 = hostname.as_ref();
-        let hostname2 = &fqdn!("rb-test0.icp1.io");
-        println!("h1 {:?}", hostname1.as_bytes());
-        println!("h2 {:?}", hostname2.as_bytes());
-        println!("EQ {:?}", hostname1 == hostname2);
-
-        let mut map = BTreeMap::new();
-        map.insert(hostname.clone(), 23);
-        dbg!(map.get(hostname1));
-        dbg!(map.get(hostname2));
     }
 }
 

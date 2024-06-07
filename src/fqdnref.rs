@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::ffi::CStr;
 use std::fmt;
 use std::fmt::{Formatter, Write};
@@ -12,7 +11,7 @@ use crate::check::ALPHABET;
 ///
 /// [`&Fqdn`](`crate::Fqdn`) is to [`FQDN`](`crate::FQDN`) as [`&str`] is to [`String`]:
 /// the former in each pair are borrowed references; the latter are owned data.
-#[derive(Debug,Eq)]
+#[derive(Debug)]
 pub struct Fqdn(pub(crate) CStr);
 
 impl Fqdn {
@@ -278,47 +277,6 @@ impl fmt::Display for Fqdn
     }
 }
 
-impl PartialEq for Fqdn
-{
-    fn eq(&self, other: &Self) -> bool
-    {
-        let b1 = self.as_bytes();
-        let b2 = other.as_bytes();
-        (b1.len() == b2.len()) && {
-            let i1 = b1.iter().map(|&i| ALPHABET[i as usize]);
-            let i2 = b2.iter().map(|&i| ALPHABET[i as usize]);
-            i1.eq(i2)
-        }
-    }
-}
-
-impl PartialEq<FQDN> for Fqdn
-{
-    #[inline]
-    fn eq(&self, other: &FQDN) -> bool { self.eq(other.as_ref()) }
-}
-
-impl PartialOrd for Fqdn
-{
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
-}
-
-impl Ord for Fqdn
-{
-    fn cmp(&self, other: &Self) -> Ordering
-    {
-        let i1 = self.as_bytes().iter().map(|&i| ALPHABET[i as usize]);
-        let i2 = other.as_bytes().iter().map(|&i| ALPHABET[i as usize]);
-        i1.cmp(i2)
-    }
-}
-
-impl PartialOrd<FQDN> for Fqdn
-{
-    #[inline]
-    fn partial_cmp(&self, other: &FQDN) -> Option<Ordering> { dbg!(self.partial_cmp(other.as_ref())) }
-}
 
 impl Hash for Fqdn
 {

@@ -137,7 +137,8 @@ pub(crate) fn check_byte_sequence(bytes: &[u8]) -> Result<(),Error>
     while remaining > 0 {
         match iter.next() {
             // sublen does not match with available bytes
-            None | Some(0) => return Err(Error::InvalidStructure),
+            None | Some(&0) => return Err(Error::InvalidStructure),
+
             Some(&sublen) if sublen as usize > remaining => {
                 return Err(Error::InvalidStructure)
             }
@@ -148,11 +149,19 @@ pub(crate) fn check_byte_sequence(bytes: &[u8]) -> Result<(),Error>
             }
 
             #[cfg(feature="domain-label-cannot-start-or-end-with-hyphen")]
+            Some(&1) => { // label with only one single char
+                if check_any_char(*iter.next().unwrap())? == b'-' {
+                    return Err(Error::LabelCannotStartWithHyphen);
+                }
+                remaining -= 2;
+            }
+
+            #[cfg(feature="domain-label-cannot-start-or-end-with-hyphen")]
             Some(&sublen) => {
                 if check_any_char(*iter.next().unwrap())? == b'-' {
                     return Err(Error::LabelCannotStartWithHyphen);
                 }
-                for _ in 1..sublen-1 {
+                for _ in 1..sublen - 1 {
                     check_any_char(*iter.next().unwrap())?;
                 }
                 if check_any_char(*iter.next().unwrap())? == b'-' {

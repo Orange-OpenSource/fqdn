@@ -174,6 +174,12 @@ mod tests {
         assert_eq!( &fqdn.as_bytes()[fqdn.as_bytes().len() - 5..], b"\x03com\x00");
     }
 
+    #[test]
+    fn check_bytes_label_with_single_char()
+    {
+        assert! (Fqdn::from_bytes(b"\x01a\x02fr\x00").is_ok() );
+    }
+
 
     #[test]
     fn depth()

@@ -61,7 +61,7 @@ impl TryInto<FQDN> for CString
     type Error = Error;
     #[inline]
     fn try_into(self) -> Result<FQDN, Self::Error> {
-        crate::check::check_byte_sequence(self.as_bytes_with_nul()).map(|_| FQDN(self))
+        check_byte_sequence(self.as_bytes_with_nul()).map(|_| FQDN(self))
     }
 }
 
@@ -69,7 +69,7 @@ impl TryInto<FQDN> for Vec<u8>
 {
     type Error = Error;
     fn try_into(mut self) -> Result<FQDN, Self::Error> {
-        crate::check::check_byte_sequence(self.as_slice())
+        check_byte_sequence(self.as_slice())
             .map(|_| {
                 self.pop(); // pops the terminated last nul char since
                 // from_vec_unchecked will add a new one...

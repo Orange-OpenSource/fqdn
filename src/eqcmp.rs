@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use crate::{Fqdn, FQDN};
-use crate::check::ALPHABET;
 
 impl PartialEq for FQDN
 {
@@ -81,8 +80,8 @@ impl PartialEq for Fqdn
         let b1 = self.as_bytes();
         let b2 = other.as_bytes();
         (b1.len() == b2.len()) && {
-            let i1 = b1.iter().map(|&i| ALPHABET[i as usize]);
-            let i2 = b2.iter().map(|&i| ALPHABET[i as usize]);
+            let i1 = b1.iter().map(|&i| i.to_ascii_lowercase());
+            let i2 = b2.iter().map(|&i| i.to_ascii_lowercase());
             i1.eq(i2)
         }
     }
@@ -100,8 +99,8 @@ impl Ord for Fqdn
 {
     fn cmp(&self, other: &Self) -> Ordering
     {
-        let i1 = self.as_bytes().iter().map(|&i| ALPHABET[i as usize]);
-        let i2 = other.as_bytes().iter().map(|&i| ALPHABET[i as usize]);
+        let i1 = self.as_bytes().iter().map(|&i| i.to_ascii_lowercase());
+        let i2 = other.as_bytes().iter().map(|&i| i.to_ascii_lowercase());
         i1.cmp(i2)
     }
 }

@@ -4,7 +4,6 @@ use std::fmt::{Formatter, Write};
 
 use crate::*;
 use std::hash::{Hash, Hasher};
-use crate::check::ALPHABET;
 
 
 /// A borrowed FQDN (as a slice).
@@ -168,7 +167,7 @@ impl Fqdn {
     #[inline]
     pub fn from_bytes(bytes: &[u8]) -> Result<&Self,Error>
     {
-        crate::check::check_byte_sequence(bytes)
+        check::check_byte_sequence(bytes)
             .map(|_| unsafe {
                 // it is safe because check does the necessary stuff... (including trailing nul char)
                 // and because Fqdn is just a wrapper around CStr
@@ -282,7 +281,7 @@ impl Hash for Fqdn
 {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_bytes().iter().for_each(|&i| ALPHABET[i as usize].hash(state))
+        self.as_bytes().iter().for_each(|c| c.to_ascii_lowercase().hash(state))
     }
 }
 

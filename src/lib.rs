@@ -90,11 +90,8 @@ macro_rules! fqdn {
                 b'.' => &str[..(penultimate+1)],
                 _ => &str
             };
-            if cfg!(feature = "punycode") {
-                $crate::FQDN::punyencode(str).unwrap()
-            } else {
-                str.parse::<$crate::FQDN>().unwrap()
-            }
+            #[cfg(feature="punycode")] { $crate::FQDN::punyencode(str).unwrap() }
+            #[cfg(not(feature="punycode"))] { str.parse::<$crate::FQDN>().unwrap() }
         }
     }}
 }

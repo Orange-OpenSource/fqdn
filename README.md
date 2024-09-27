@@ -12,6 +12,7 @@ compatible with the [RFC 1035](https://tools.ietf.org/html/rfc1035).
 
 So, all comparisons between character strings (e.g., labels, domain names, etc.)
 are done in a case-insensitive manner. Of course, FQDN hashing follows this behaviour.
+Note that FQDN are internally converted to lowercase.
 
 Notice that this RFC introduces some size limits which are not defaulty
 set by this crate. 

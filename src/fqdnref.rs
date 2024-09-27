@@ -3,14 +3,14 @@ use std::fmt;
 use std::fmt::{Formatter, Write};
 
 use crate::*;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 
 /// A borrowed FQDN (as a slice).
 ///
 /// [`&Fqdn`](`crate::Fqdn`) is to [`FQDN`](`crate::FQDN`) as [`&str`] is to [`String`]:
 /// the former in each pair are borrowed references; the latter are owned data.
-#[derive(Debug)]
+#[derive(Debug, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Fqdn(pub(crate) CStr);
 
 impl Fqdn {
@@ -273,15 +273,6 @@ impl fmt::Display for Fqdn
                 iter.try_for_each(|s| { f.write_char('.')?; f.write_str(s)  })
             }
         }
-    }
-}
-
-
-impl Hash for Fqdn
-{
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_bytes().iter().for_each(|c| c.to_ascii_lowercase().hash(state))
     }
 }
 

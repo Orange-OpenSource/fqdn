@@ -54,6 +54,8 @@ mod fqdn;
 mod check;
 mod eqcmp;
 
+#[cfg(feature = "punycode")] mod punycode;
+
 
 /// Parses a list of strings and creates an new
 /// FQDN by concatenating them.
@@ -84,9 +86,14 @@ macro_rules! fqdn {
         } else {
             let penultimate = str.as_bytes().len() - 2;
             // SAFETY: the length is checked just before
-            match unsafe { str.as_bytes().get_unchecked(penultimate) } {
-                b'.' => str[..(penultimate+1)].parse::<$crate::FQDN>().unwrap(),
-                _ => str.parse::<$crate::FQDN>().unwrap()
+            let str = match unsafe { str.as_bytes().get_unchecked(penultimate) } {
+                b'.' => &str[..(penultimate+1)],
+                _ => &str
+            };
+            if cfg!(feature = "punycode") {
+                $crate::FQDN::punyencode(str).unwrap()
+            } else {
+                str.parse::<$crate::FQDN>().unwrap()
             }
         }
     }}
@@ -215,6 +222,26 @@ mod tests {
         assert_eq!(&fqdn1, fqdn2.as_ref());
         assert_eq!(fqdn1.as_ref(), &fqdn2);
         assert_eq!(fqdn1, *fqdn2.as_ref());
+    }
+
+    #[test]
+    fn string_compare()
+    {
+        let fqdn = "GitHub.com.".parse::<FQDN>().unwrap();
+        assert_eq!(fqdn, "github.com.");
+        assert_eq!("github.com.", fqdn);
+        assert_eq!(fqdn, "github.COM.");
+        assert_ne!(fqdn, "git=hub.COM.");
+
+        #[cfg(feature="domain-name-should-have-trailing-dot")] {
+            assert_ne!(fqdn, "github.com");
+            assert_ne!(fqdn, "github.COM");
+        }
+
+        #[cfg(not(feature="domain-name-should-have-trailing-dot"))] {
+            assert_eq!(fqdn, "github.com");
+            assert_eq!(fqdn, "github.COM");
+        }
     }
 
     #[test]

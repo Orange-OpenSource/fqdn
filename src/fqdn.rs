@@ -6,10 +6,11 @@ use std::convert::TryInto;
 
 use std::borrow::Borrow;
 use std::str::FromStr;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 use crate::*;
 use crate::check::*;
+
 
 /// A FQDN string.
 ///
@@ -20,7 +21,7 @@ use crate::check::*;
 ///
 /// [`FQDN`] is to [`&Fqdn`](`crate::Fqdn`) as [`String`] is to [`&str`]: the former
 /// in each pair are owned data; the latter are borrowed references.
-#[derive(Debug,Clone,Default)]
+#[derive(Debug,Clone,Default,Hash,PartialEq,Eq,PartialOrd,Ord)]
 pub struct FQDN(pub(crate) CString);
 
 
@@ -39,15 +40,6 @@ impl ops::Deref for FQDN
     #[inline]
     fn deref(&self) -> &Self::Target { self.as_ref() }
 }
-
-impl Hash for FQDN
-{
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_ref().hash(state)
-    }
-}
-
 
 
 impl From<&Fqdn> for FQDN
@@ -144,11 +136,14 @@ impl FromStr for FQDN
                     l => {
                         let mut iter = label.iter();
 
-                        // check all the other characters...
-                        iter.try_for_each(|&c| { check_any_char(c)?; Ok(())} )?;
-                        // and concatenate to the fqdn to build
-                        bytes.push(l as u8); // first, prepend the label length
-                        bytes.extend_from_slice(label);
+                        // first, prepend the label length
+                        bytes.push(l as u8);
+
+                        // check and push all the other characters...
+                        iter.try_for_each(|&c| {
+                            Ok(bytes.push(check_and_lower_any_char(c)?))
+                        } )?;
+
                         Ok(bytes)
                     }
                 })

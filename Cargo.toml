@@ -1,6 +1,6 @@
 [package]
 name = "fqdn"
-version = "0.3.12"
+version = "0.4.0"
 authors = ["Xophe <christophe.dousson@orange.com>"]
 edition = "2021"
 license = "MIT"
@@ -9,6 +9,9 @@ repository = "https://github.com/Orange-OpenSource/fqdn"
 documentation = "https://docs.rs/fqdn"
 keywords = ["fqdn","dns"]
 categories = ["data-structures"]
+
+[dependencies]
+punycode = { version = "0.4.1", optional = true}
 
 [features]
 # By default, this crate allows also underscores ('_') in FQDN
@@ -34,3 +37,4 @@ domain-label-length-limited-to-63 = []
 domain-name-without-special-chars = []
 domain-name-should-have-trailing-dot = []
 domain-label-cannot-start-or-end-with-hyphen = []
+

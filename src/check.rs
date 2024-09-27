@@ -77,7 +77,7 @@ impl fmt::Display for Error {
     }
 }
 
-// Checks if the bytes are really a FQDN (with a trailing nul char)
+// Checks if the bytes are really a FQDN (with lower cases and a trailing nul char)
 pub(crate) fn check_byte_sequence(bytes: &[u8]) -> Result<(),Error>
 {
     // stop immediately if the trailing nul char is missing
@@ -150,10 +150,19 @@ pub(crate) fn check_byte_sequence(bytes: &[u8]) -> Result<(),Error>
 }
 
 
-#[inline]
-pub(crate) fn check_any_char(c: u8) -> Result<u8,Error>
+fn check_any_char(c: u8) -> Result<u8,Error>
 {
-    /// If the 6th bit is set ascii is lower case.
+    match c {
+        b'a'..=b'z' | b'-' | b'0'..=b'9' => Ok(c),
+        #[cfg(not(feature="domain-name-without-special-chars"))]
+        b'_'=> Ok(c),
+        _ => Err(Error::InvalidLabelChar),
+    }
+}
+
+pub(crate) fn check_and_lower_any_char(c: u8) -> Result<u8,Error>
+{
+    /// If the 6th bit is set, ascii is lower case.
     const ASCII_CASE_MASK: u8 = 0b0010_0000;
 
     match c {

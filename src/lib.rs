@@ -176,6 +176,25 @@ mod tests {
         let fqdn = Fqdn::from_bytes(b"\x06github\x03com\x00").unwrap();
         assert_eq!( fqdn.tld().unwrap().as_bytes(), b"\x03com\x00");
         assert_eq!( &fqdn.as_bytes()[fqdn.as_bytes().len() - 5..], b"\x03com\x00");
+
+        assert_eq!( Ok(FQDN::default()), FQDN::new(vec![]) );
+
+        assert_eq!( Err(Error::InvalidStructure), FQDN::new(vec![1]) );
+        assert_eq!( Ok(fqdn!("a.fr")), FQDN::new(vec![1, b'a', 2, b'f', b'r']) );
+        assert_eq!( Ok(fqdn!("a.fr")), FQDN::new(vec![1, b'a', 2, b'f', b'r', 0]) );
+    }
+
+    #[test]
+    fn check_bytes_label_with_lowercase()
+    {
+        let fqdnref = Fqdn::from_bytes(b"\x06github\x03com\x00").unwrap();
+        assert_eq!(fqdnref.to_string(), "github.com");
+
+        let fqdn = FQDN::new(b"\x06GitHUB\x03com\x00".to_vec()).unwrap();
+        assert_eq!( fqdn, *fqdnref);
+
+        let fqdn = FQDN::new(b"\x06GitHUB\x03com".to_vec()).unwrap();
+        assert_eq!( fqdn, *fqdnref);
     }
 
     #[test]

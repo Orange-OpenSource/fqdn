@@ -70,7 +70,7 @@ mod tests {
     fn punycode()
     {
        let fqdn = fqdn!("www.académie-Française.fr");
-        assert_eq!(fqdn, "www.xn--acadmie-franaise-npb1a.fr");
+        assert_eq!(fqdn, fqdn!("www.xn--acadmie-franaise-npb1a.fr"));
 
         assert_eq!(FQDN::punyencode("www.académie-française.fr").unwrap(), fqdn);
 

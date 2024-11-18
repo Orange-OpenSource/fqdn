@@ -2,7 +2,6 @@ use core::ops;
 use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
-use std::convert::TryInto;
 
 use std::borrow::Borrow;
 use std::str::FromStr;
@@ -23,6 +22,73 @@ use crate::check::*;
 /// in each pair are owned data; the latter are borrowed references.
 #[derive(Debug,Clone,Default,Hash,PartialEq,Eq,PartialOrd,Ord)]
 pub struct FQDN(pub(crate) CString);
+
+impl FQDN {
+
+    pub fn new<V:Into<Vec<u8>>>(bytes:V) -> Result<Self,Error>
+    {
+        let mut bytes = bytes.into();
+
+        // add a trailing 0 if not present
+        if bytes.last() != Some(&0) {
+            bytes.push(0);
+        }
+
+        // check against 254 since we have the trailing char and the first label length to consider
+        // (the trailing null bytes is supposet to be there)
+        #[cfg(feature="domain-name-length-limited-to-255")]
+        if bytes.len() > 254 {
+            return Err(Error::TooLongDomainName);
+        }
+
+        // now, check each FQDN subpart (excluding the last nul char)
+        let tochecklen = bytes.len()-1;
+        let mut tocheck = &mut bytes[..tochecklen];
+        while !tocheck.is_empty() {
+            match tocheck[0] as usize {
+                l if l >= tocheck.len() => {
+                    return Err(Error::InvalidStructure);
+                }
+
+                #[cfg(feature="domain-label-length-limited-to-63")]
+                l if l > 63 => {
+                    return Err(Error::TooLongLabel);
+                }
+
+                0 => {
+                    return Err(Error::EmptyLabel);
+                }
+
+                l => {
+                    tocheck
+                        .iter_mut()
+                        .skip(1) // skip the label length
+                        .take(l) // only process the current label
+                        .try_for_each(|c| {
+                            *c = check_and_lower_any_char(*c)?;
+                            Ok::<(),Error>(())
+                        })?;
+                    tocheck = &mut tocheck[l+1..];
+                }
+            }
+        }
+        Ok(unsafe { Self::from_vec_with_nul_unchecked(bytes)})
+    }
+
+    /// Creates a FQDN from a vector of bytes without any checking
+    ///
+    /// # Safety
+    /// The behaviour is unpredictable if:
+    /// * the last bytes is not 0, or
+    /// * the structure of the FQDN is corrupted (should be a sequence of labels), or
+    /// * the label length is too high, or
+    /// * the total length is too high, or
+    /// * a not allowed character is used
+    unsafe fn from_vec_with_nul_unchecked(v: Vec<u8>) -> Self
+    {
+        FQDN(CString::from_vec_with_nul_unchecked(v))
+    }
+}
 
 
 impl AsRef<Fqdn> for FQDN
@@ -45,30 +111,39 @@ impl ops::Deref for FQDN
 impl From<&Fqdn> for FQDN
 {
     #[inline]
-    fn from(s: &Fqdn) -> FQDN { s.to_owned() }
+    fn from(s: &Fqdn) -> FQDN { FQDN(s.0.into()) }
 }
 
-impl TryInto<FQDN> for CString
+impl From<Box<Fqdn>> for FQDN
 {
-    type Error = Error;
     #[inline]
-    fn try_into(self) -> Result<FQDN, Self::Error> {
-        check_byte_sequence(self.as_bytes_with_nul()).map(|_| FQDN(self))
+    fn from(s: Box<Fqdn>) -> FQDN {
+        let cstr : Box<CStr> = unsafe { std::mem::transmute(s) };
+        FQDN(cstr.into())
     }
 }
 
-impl TryInto<FQDN> for Vec<u8>
+impl TryFrom<CString> for FQDN
 {
     type Error = Error;
-    fn try_into(mut self) -> Result<FQDN, Self::Error> {
-        check_byte_sequence(self.as_slice())
-            .map(|_| {
-                self.pop(); // pops the terminated last nul char since
-                // from_vec_unchecked will add a new one...
-                FQDN(unsafe{CString::from_vec_unchecked(self)})
-            })
+
+    #[inline]
+    fn try_from(bytes: CString) -> Result<FQDN, Self::Error> {
+        Self::new(bytes.into_bytes_with_nul())
     }
 }
+
+
+impl TryFrom<Vec<u8>> for FQDN
+{
+    type Error = Error;
+
+    #[inline]
+    fn try_from(bytes: Vec<u8>) -> Result<FQDN, Self::Error> {
+        Self::new(bytes)
+    }
+}
+
 
 impl Borrow<Fqdn> for FQDN {
     #[inline]
@@ -141,7 +216,8 @@ impl FromStr for FQDN
 
                         // check and push all the other characters...
                         iter.try_for_each(|&c| {
-                            Ok(bytes.push(check_and_lower_any_char(c)?))
+                            bytes.push(check_and_lower_any_char(c)?);
+                            Ok(())
                         } )?;
 
                         Ok(bytes)

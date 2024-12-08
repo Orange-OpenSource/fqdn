@@ -188,7 +188,13 @@ mod tests {
     fn check_bytes_label_with_lowercase()
     {
         let fqdnref = Fqdn::from_bytes(b"\x06github\x03com\x00").unwrap();
-        assert_eq!(fqdnref.to_string(), "github.com");
+
+        #[cfg(feature="domain-name-should-have-trailing-dot")] {
+            assert_eq!(fqdnref.to_string(), "github.com.");
+        }
+        #[cfg(not(feature="domain-name-should-have-trailing-dot"))] {
+            assert_eq!(fqdnref.to_string(), "github.com");
+        }
 
         let fqdn = FQDN::new(b"\x06GitHUB\x03com\x00".to_vec()).unwrap();
         assert_eq!( fqdn, *fqdnref);

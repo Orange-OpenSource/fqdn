@@ -13,6 +13,14 @@ use std::hash::Hash;
 #[derive(Debug, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Fqdn(pub(crate) CStr);
 
+#[cfg(feature = "serde")]
+impl serde::Serialize for Fqdn {
+    #[inline]
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
 impl Fqdn {
 
     /// Checks if this is the top domain.

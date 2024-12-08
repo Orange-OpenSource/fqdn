@@ -1,6 +1,6 @@
 [package]
 name = "fqdn"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Xophe <christophe.dousson@orange.com>"]
 edition = "2021"
 license = "MIT"
@@ -13,6 +13,9 @@ categories = ["data-structures"]
 [dependencies]
 # Activate punycode conversion (RFC3492 Punycode).
 punycode = { version = "0.4.1", optional = true }
+# Activate (de)serialization mechanism
+serde = { version = "1.0.215", features = ["std"], optional = true }
+
 
 [features]
 # By default, this crate allows also underscores ('_') in FQDN

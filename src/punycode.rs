@@ -43,7 +43,7 @@ impl Fqdn {
 
     pub fn punydecode(&self) -> String
     {
-        let mut fqdn = self.labels()
+        let fqdn = self.labels()
             .fold(String::with_capacity(self.as_bytes().len()),
                   |mut acc, label| {
                       if label.starts_with("xn--") {

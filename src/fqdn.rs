@@ -23,6 +23,22 @@ use crate::check::*;
 #[derive(Debug,Clone,Default,Hash,PartialEq,Eq,PartialOrd,Ord)]
 pub struct FQDN(pub(crate) CString);
 
+#[cfg(feature = "serde")]
+impl serde::Serialize for FQDN {
+    #[inline]
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for FQDN {
+    #[inline]
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        CString::deserialize(deserializer).map(Self)
+    }
+}
+
 impl FQDN {
 
     pub fn new<V:Into<Vec<u8>>>(bytes:V) -> Result<Self,Error>

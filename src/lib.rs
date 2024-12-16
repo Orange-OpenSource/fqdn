@@ -49,13 +49,13 @@
 //!
 //! See above for more details.
 //!
-mod fqdnref;
-mod fqdn;
 mod check;
 mod eqcmp;
+mod fqdn;
+mod fqdnref;
 
-#[cfg(feature = "punycode")] mod punycode;
-
+#[cfg(feature = "punycode")]
+mod punycode;
 
 /// Parses a list of strings and creates an new
 /// FQDN by concatenating them.
@@ -97,48 +97,62 @@ macro_rules! fqdn {
 }
 
 pub use crate::fqdn::FQDN;
-pub use fqdnref::Fqdn;
 pub use check::Error;
+pub use fqdnref::Fqdn;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeSet, HashSet};
     use crate as fqdn;
     use fqdn::*;
+    use std::collections::{BTreeSet, HashSet};
 
     #[test]
-    fn parsing_string()
-    {
+    fn parsing_string() {
         assert!(FQDN::default().is_root());
         assert!("github.com.".parse::<FQDN>().is_ok());
 
-        #[cfg(feature="domain-name-should-have-trailing-dot")]
-        assert_eq!("crates.io".parse::<FQDN>(), Err(fqdn::Error::TrailingDotMissing));
+        #[cfg(feature = "domain-name-should-have-trailing-dot")]
+        assert_eq!(
+            "crates.io".parse::<FQDN>(),
+            Err(fqdn::Error::TrailingDotMissing)
+        );
 
-        #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
-        assert_eq!("crates.io".parse::<FQDN>().map(|fqdn| fqdn.to_string()), Ok("crates.io".to_string()));
+        #[cfg(not(feature = "domain-name-should-have-trailing-dot"))]
+        assert_eq!(
+            "crates.io".parse::<FQDN>().map(|fqdn| fqdn.to_string()),
+            Ok("crates.io".to_string())
+        );
 
         assert_eq!("github..com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
         assert_eq!(".github.com.".parse::<FQDN>(), Err(fqdn::Error::EmptyLabel));
-        assert_eq!("git@ub.com.".parse::<FQDN>(), Err(fqdn::Error::InvalidLabelChar));
+        assert_eq!(
+            "git@ub.com.".parse::<FQDN>(),
+            Err(fqdn::Error::InvalidLabelChar)
+        );
 
         const LENGTH_256: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.";
         const LENGTH_255: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.";
 
-        #[cfg(feature="domain-name-length-limited-to-255")]
-        assert_eq!(LENGTH_256.parse::<FQDN>(), Err(fqdn::Error::TooLongDomainName));
+        #[cfg(feature = "domain-name-length-limited-to-255")]
+        assert_eq!(
+            LENGTH_256.parse::<FQDN>(),
+            Err(fqdn::Error::TooLongDomainName)
+        );
 
-        #[cfg(not(feature="domain-name-length-limited-to-255"))]
+        #[cfg(not(feature = "domain-name-length-limited-to-255"))]
         assert!(LENGTH_256.parse::<FQDN>().is_ok());
 
         assert!(LENGTH_255.parse::<FQDN>().is_ok());
 
-        #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
+        #[cfg(not(feature = "domain-name-should-have-trailing-dot"))]
         {
-            #[cfg(feature="domain-name-length-limited-to-255")]
-            assert_eq!(LENGTH_256[..LENGTH_256.len() - 1].parse::<FQDN>(), Err(fqdn::Error::TooLongDomainName));
+            #[cfg(feature = "domain-name-length-limited-to-255")]
+            assert_eq!(
+                LENGTH_256[..LENGTH_256.len() - 1].parse::<FQDN>(),
+                Err(fqdn::Error::TooLongDomainName)
+            );
 
-            #[cfg(not(feature="domain-name-length-limited-to-255"))]
+            #[cfg(not(feature = "domain-name-length-limited-to-255"))]
             assert!(LENGTH_256[..LENGTH_256.len() - 1].parse::<FQDN>().is_ok());
 
             assert!(LENGTH_255[..LENGTH_255.len() - 1].parse::<FQDN>().is_ok());
@@ -146,96 +160,115 @@ mod tests {
     }
 
     #[test]
-    fn parsing_bytes()
-    {
+    fn parsing_bytes() {
         assert!(Fqdn::from_bytes(b"\x06github\x03com\x00").is_ok());
 
-        assert_eq!(Fqdn::from_bytes(b"\x06github\x03com"), Err(fqdn::Error::TrailingNulCharMissing));
-        assert_eq!(Fqdn::from_bytes(b"\x06g|thub\x03com\x00"), Err(fqdn::Error::InvalidLabelChar));
+        assert_eq!(
+            Fqdn::from_bytes(b"\x06github\x03com"),
+            Err(fqdn::Error::TrailingNulCharMissing)
+        );
+        assert_eq!(
+            Fqdn::from_bytes(b"\x06g|thub\x03com\x00"),
+            Err(fqdn::Error::InvalidLabelChar)
+        );
 
-        #[cfg(feature = "domain-label-cannot-start-or-end-with-hyphen")] {
-            assert_eq!(Fqdn::from_bytes(b"\x05-yeah\x0512345\x03com\x00"), Err(fqdn::Error::LabelCannotStartWithHyphen));
-            assert_eq!(Fqdn::from_bytes(b"\x05yeah-\x0512345\x03com\x00"), Err(fqdn::Error::LabelCannotEndWithHyphen));
+        #[cfg(feature = "domain-label-cannot-start-or-end-with-hyphen")]
+        {
+            assert_eq!(
+                Fqdn::from_bytes(b"\x05-yeah\x0512345\x03com\x00"),
+                Err(fqdn::Error::LabelCannotStartWithHyphen)
+            );
+            assert_eq!(
+                Fqdn::from_bytes(b"\x05yeah-\x0512345\x03com\x00"),
+                Err(fqdn::Error::LabelCannotEndWithHyphen)
+            );
         }
 
         const LENGTH_256: &[u8; 256] = b"\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3eaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x00";
         const LENGTH_255: &[u8; 255] = b"\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x3daaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x00";
 
-        #[cfg(feature="domain-name-length-limited-to-255")]
-        assert_eq!(Fqdn::from_bytes(LENGTH_256), Err(fqdn::Error::TooLongDomainName));
+        #[cfg(feature = "domain-name-length-limited-to-255")]
+        assert_eq!(
+            Fqdn::from_bytes(LENGTH_256),
+            Err(fqdn::Error::TooLongDomainName)
+        );
 
-        #[cfg(not(feature="domain-name-length-limited-to-255"))]
+        #[cfg(not(feature = "domain-name-length-limited-to-255"))]
         assert!(Fqdn::from_bytes(LENGTH_256).is_ok());
 
         assert!(Fqdn::from_bytes(LENGTH_255).is_ok());
     }
 
     #[test]
-    fn check_bytes()
-    {
+    fn check_bytes() {
         let fqdn = Fqdn::from_bytes(b"\x06github\x03com\x00").unwrap();
-        assert_eq!( fqdn.tld().unwrap().as_bytes(), b"\x03com\x00");
-        assert_eq!( &fqdn.as_bytes()[fqdn.as_bytes().len() - 5..], b"\x03com\x00");
+        assert_eq!(fqdn.tld().unwrap().as_bytes(), b"\x03com\x00");
+        assert_eq!(
+            &fqdn.as_bytes()[fqdn.as_bytes().len() - 5..],
+            b"\x03com\x00"
+        );
 
-        assert_eq!( Ok(FQDN::default()), FQDN::new(vec![]) );
+        assert_eq!(Ok(FQDN::default()), FQDN::new(vec![]));
 
-        assert_eq!( Err(Error::InvalidStructure), FQDN::new(vec![1]) );
-        assert_eq!( Ok(fqdn!("a.fr")), FQDN::new(vec![1, b'a', 2, b'f', b'r']) );
-        assert_eq!( Ok(fqdn!("a.fr")), FQDN::new(vec![1, b'a', 2, b'f', b'r', 0]) );
+        assert_eq!(Err(Error::InvalidStructure), FQDN::new(vec![1]));
+        assert_eq!(Ok(fqdn!("a.fr")), FQDN::new(vec![1, b'a', 2, b'f', b'r']));
+        assert_eq!(
+            Ok(fqdn!("a.fr")),
+            FQDN::new(vec![1, b'a', 2, b'f', b'r', 0])
+        );
     }
 
     #[test]
-    fn check_bytes_label_with_lowercase()
-    {
+    fn check_bytes_label_with_lowercase() {
         let fqdnref = Fqdn::from_bytes(b"\x06github\x03com\x00").unwrap();
 
-        #[cfg(feature="domain-name-should-have-trailing-dot")] {
+        #[cfg(feature = "domain-name-should-have-trailing-dot")]
+        {
             assert_eq!(fqdnref.to_string(), "github.com.");
         }
-        #[cfg(not(feature="domain-name-should-have-trailing-dot"))] {
+        #[cfg(not(feature = "domain-name-should-have-trailing-dot"))]
+        {
             assert_eq!(fqdnref.to_string(), "github.com");
         }
 
         let fqdn = FQDN::new(b"\x06GitHUB\x03com\x00".to_vec()).unwrap();
-        assert_eq!( fqdn, *fqdnref);
+        assert_eq!(fqdn, *fqdnref);
 
         let fqdn = FQDN::new(b"\x06GitHUB\x03com".to_vec()).unwrap();
-        assert_eq!( fqdn, *fqdnref);
+        assert_eq!(fqdn, *fqdnref);
     }
 
     #[test]
-    fn check_bytes_label_with_single_char()
-    {
-        assert! (Fqdn::from_bytes(b"\x01a\x02fr\x00").is_ok() );
+    fn check_bytes_label_with_single_char() {
+        assert!(Fqdn::from_bytes(b"\x01a\x02fr\x00").is_ok());
     }
 
-
     #[test]
-    fn depth()
-    {
+    fn depth() {
         assert_eq!(".".parse::<FQDN>().map(|f| f.is_root()), Ok(true));
         assert_eq!(".".parse::<FQDN>().map(|f| f.depth()), Ok(0));
         assert_eq!("github.com.".parse::<FQDN>().map(|f| f.depth()), Ok(2));
-        assert_eq!("rust-lang.github.com.".parse::<FQDN>().map(|f| f.depth()), Ok(3));
+        assert_eq!(
+            "rust-lang.github.com.".parse::<FQDN>().map(|f| f.depth()),
+            Ok(3)
+        );
     }
 
     #[test]
-    fn subdomains()
-    {
+    fn subdomains() {
         let a = "rust-lang.github.com.".parse::<FQDN>().unwrap();
         let b = "GitHub.com.".parse::<FQDN>().unwrap();
 
-        assert!( a.is_subdomain_of(&a));
-        assert!( a.is_subdomain_of(&b));
-        assert!( !b.is_subdomain_of(&a));
+        assert!(a.is_subdomain_of(&a));
+        assert!(a.is_subdomain_of(&b));
+        assert!(!b.is_subdomain_of(&a));
 
-        assert!( fqdn!("com").is_tld() );
-        assert_eq!( a, fqdn!("rust-lang","github","com") );
+        assert!(fqdn!("com").is_tld());
+        assert_eq!(a, fqdn!("rust-lang", "github", "com"));
     }
 
     #[test]
-    fn equivalence()
-    {
+    fn equivalence() {
         let fqdn1 = "github.com.".parse::<FQDN>().unwrap();
         let fqdn2 = "GitHub.com.".parse::<FQDN>().unwrap();
         assert_eq!(fqdn1, fqdn2);
@@ -247,42 +280,80 @@ mod tests {
     }
 
     #[test]
-    fn string_compare()
-    {
+    fn string_compare() {
         let fqdn = "GitHub.com.".parse::<FQDN>().unwrap();
         assert_eq!(fqdn, "github.com.");
         assert_eq!("github.com.", fqdn);
         assert_eq!(fqdn, "github.COM.");
         assert_ne!(fqdn, "git=hub.COM.");
 
-        #[cfg(feature="domain-name-should-have-trailing-dot")] {
+        #[cfg(feature = "domain-name-should-have-trailing-dot")]
+        {
             assert_ne!(fqdn, "github.com");
             assert_ne!(fqdn, "github.COM");
         }
 
-        #[cfg(not(feature="domain-name-should-have-trailing-dot"))] {
+        #[cfg(not(feature = "domain-name-should-have-trailing-dot"))]
+        {
             assert_eq!(fqdn, "github.com");
             assert_eq!(fqdn, "github.COM");
         }
     }
 
     #[test]
-    fn ordering()
-    {
-        assert!("a.github.com.".parse::<FQDN>().unwrap() < "aa.GitHub.com.".parse::<FQDN>().unwrap());
-        assert!("ab.github.com.".parse::<FQDN>().unwrap() > "aa.github.com.".parse::<FQDN>().unwrap());
-        assert!("ab.GitHub.com.".parse::<FQDN>().unwrap() > "aa.github.com.".parse::<FQDN>().unwrap());
-        assert!("ab.GitHub.com.".parse::<FQDN>().unwrap() > "aa.github.co.".parse::<FQDN>().unwrap());
+    fn ordering() {
+        assert!(
+            "a.github.com.".parse::<FQDN>().unwrap() < "aa.GitHub.com.".parse::<FQDN>().unwrap()
+        );
+        assert!(
+            "ab.github.com.".parse::<FQDN>().unwrap() > "aa.github.com.".parse::<FQDN>().unwrap()
+        );
+        assert!(
+            "ab.GitHub.com.".parse::<FQDN>().unwrap() > "aa.github.com.".parse::<FQDN>().unwrap()
+        );
+        assert!(
+            "ab.GitHub.com.".parse::<FQDN>().unwrap() > "aa.github.co.".parse::<FQDN>().unwrap()
+        );
 
-        let items = ["github.com.", "a.Github.com.", "a.GitHub.com.", "a.github.com.", "aa.github.com."];
+        let items = [
+            "github.com.",
+            "a.Github.com.",
+            "a.GitHub.com.",
+            "a.github.com.",
+            "aa.github.com.",
+        ];
 
-        let ordered = items.iter().map(|s| s.parse::<FQDN>().unwrap())
+        let ordered = items
+            .iter()
+            .map(|s| s.parse::<FQDN>().unwrap())
             .collect::<BTreeSet<_>>();
 
-        let unordered = items.iter().map(|s| s.parse::<FQDN>().unwrap())
+        let unordered = items
+            .iter()
+            .map(|s| s.parse::<FQDN>().unwrap())
             .collect::<HashSet<_>>();
 
         assert_eq!(ordered.len(), unordered.len());
     }
-}
 
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_serde() {
+        let js = r#"{"foo.bar":1,"github.com":2}"#;
+        let map = std::collections::BTreeMap::from_iter(
+            vec![
+                (crate::fqdn!("foo.bar"), 1),
+                (crate::fqdn!("github.com"), 2),
+            ]
+            .into_iter(),
+        );
+
+        // Test parsing
+        let r: std::collections::BTreeMap<crate::FQDN, u8> = serde_json::from_str(js).unwrap();
+        assert_eq!(r, map);
+
+        // Test serialization
+        let js2 = serde_json::to_string(&map).unwrap();
+        assert_eq!(js, js2);
+    }
+}

@@ -5,11 +5,12 @@ use std::fmt::Formatter;
 
 use std::borrow::Borrow;
 use std::str::FromStr;
-use std::hash::Hash;
 
-use crate::*;
+#[cfg(feature = "serde")]
+use serde::de;
+
 use crate::check::*;
-
+use crate::*;
 
 /// A FQDN string.
 ///
@@ -20,14 +21,34 @@ use crate::check::*;
 ///
 /// [`FQDN`] is to [`&Fqdn`](`crate::Fqdn`) as [`String`] is to [`&str`]: the former
 /// in each pair are owned data; the latter are borrowed references.
-#[derive(Debug,Clone,Default,Hash,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FQDN(pub(crate) CString);
+
+/// Implement serde visitor for FQDN
+#[cfg(feature = "serde")]
+struct FQDNVisitor;
+
+#[cfg(feature = "serde")]
+impl<'de> de::Visitor<'de> for FQDNVisitor {
+    type Value = FQDN;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "FQDN in a proper format")
+    }
+
+    fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        FQDN::from_str(s).map_err(|e| de::Error::custom(format!("unable to parse FQDN: {e:#}")))
+    }
+}
 
 #[cfg(feature = "serde")]
 impl serde::Serialize for FQDN {
     #[inline]
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.0.serialize(serializer)
+        serializer.serialize_str(&self.to_string())
     }
 }
 
@@ -35,14 +56,12 @@ impl serde::Serialize for FQDN {
 impl<'de> serde::Deserialize<'de> for FQDN {
     #[inline]
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        CString::deserialize(deserializer).map(Self)
+        deserializer.deserialize_str(FQDNVisitor)
     }
 }
 
 impl FQDN {
-
-    pub fn new<V:Into<Vec<u8>>>(bytes:V) -> Result<Self,Error>
-    {
+    pub fn new<V: Into<Vec<u8>>>(bytes: V) -> Result<Self, Error> {
         let mut bytes = bytes.into();
 
         // add a trailing 0 if not present
@@ -52,13 +71,13 @@ impl FQDN {
 
         // check against 254 since we have the trailing char and the first label length to consider
         // (the trailing null bytes is supposet to be there)
-        #[cfg(feature="domain-name-length-limited-to-255")]
+        #[cfg(feature = "domain-name-length-limited-to-255")]
         if bytes.len() > 254 {
             return Err(Error::TooLongDomainName);
         }
 
         // now, check each FQDN subpart (excluding the last nul char)
-        let tochecklen = bytes.len()-1;
+        let tochecklen = bytes.len() - 1;
         let mut tocheck = &mut bytes[..tochecklen];
         while !tocheck.is_empty() {
             match tocheck[0] as usize {
@@ -66,7 +85,7 @@ impl FQDN {
                     return Err(Error::InvalidStructure);
                 }
 
-                #[cfg(feature="domain-label-length-limited-to-63")]
+                #[cfg(feature = "domain-label-length-limited-to-63")]
                 l if l > 63 => {
                     return Err(Error::TooLongLabel);
                 }
@@ -82,13 +101,13 @@ impl FQDN {
                         .take(l) // only process the current label
                         .try_for_each(|c| {
                             *c = check_and_lower_any_char(*c)?;
-                            Ok::<(),Error>(())
+                            Ok::<(), Error>(())
                         })?;
-                    tocheck = &mut tocheck[l+1..];
+                    tocheck = &mut tocheck[l + 1..];
                 }
             }
         }
-        Ok(unsafe { Self::from_vec_with_nul_unchecked(bytes)})
+        Ok(unsafe { Self::from_vec_with_nul_unchecked(bytes) })
     }
 
     /// Creates a FQDN from a vector of bytes without any checking
@@ -100,15 +119,12 @@ impl FQDN {
     /// * the label length is too high, or
     /// * the total length is too high, or
     /// * a not allowed character is used
-    unsafe fn from_vec_with_nul_unchecked(v: Vec<u8>) -> Self
-    {
+    unsafe fn from_vec_with_nul_unchecked(v: Vec<u8>) -> Self {
         FQDN(CString::from_vec_with_nul_unchecked(v))
     }
 }
 
-
-impl AsRef<Fqdn> for FQDN
-{
+impl AsRef<Fqdn> for FQDN {
     #[inline]
     fn as_ref(&self) -> &Fqdn {
         // SAFE because Fqdn is just a wrapper around CStr
@@ -116,31 +132,30 @@ impl AsRef<Fqdn> for FQDN
     }
 }
 
-impl ops::Deref for FQDN
-{
+impl ops::Deref for FQDN {
     type Target = Fqdn;
     #[inline]
-    fn deref(&self) -> &Self::Target { self.as_ref() }
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
 }
 
-
-impl From<&Fqdn> for FQDN
-{
+impl From<&Fqdn> for FQDN {
     #[inline]
-    fn from(s: &Fqdn) -> FQDN { FQDN(s.0.into()) }
+    fn from(s: &Fqdn) -> FQDN {
+        FQDN(s.0.into())
+    }
 }
 
-impl From<Box<Fqdn>> for FQDN
-{
+impl From<Box<Fqdn>> for FQDN {
     #[inline]
     fn from(s: Box<Fqdn>) -> FQDN {
-        let cstr : Box<CStr> = unsafe { std::mem::transmute(s) };
+        let cstr: Box<CStr> = unsafe { std::mem::transmute(s) };
         FQDN(cstr.into())
     }
 }
 
-impl TryFrom<CString> for FQDN
-{
+impl TryFrom<CString> for FQDN {
     type Error = Error;
 
     #[inline]
@@ -149,9 +164,7 @@ impl TryFrom<CString> for FQDN
     }
 }
 
-
-impl TryFrom<Vec<u8>> for FQDN
-{
+impl TryFrom<Vec<u8>> for FQDN {
     type Error = Error;
 
     #[inline]
@@ -160,32 +173,32 @@ impl TryFrom<Vec<u8>> for FQDN
     }
 }
 
-
 impl Borrow<Fqdn> for FQDN {
     #[inline]
-    fn borrow(&self) -> &Fqdn { self.as_ref() }
+    fn borrow(&self) -> &Fqdn {
+        self.as_ref()
+    }
 }
 
-impl fmt::Display for FQDN
-{
+impl fmt::Display for FQDN {
     #[inline]
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result { self.as_ref().fmt(f) }
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.as_ref().fmt(f)
+    }
 }
 
-impl FromStr for FQDN
-{
+impl FromStr for FQDN {
     type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err>
-    {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         // check the trailing dot and remove it
         // (the empty FQDN '.' is also managed here)
         let s = s.as_bytes();
-        let toparse =  match s.last() {
+        let toparse = match s.last() {
             None => {
-                #[cfg(feature="domain-name-should-have-trailing-dot")]
+                #[cfg(feature = "domain-name-should-have-trailing-dot")]
                 return Err(Error::TrailingDotMissing);
-                #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
+                #[cfg(not(feature = "domain-name-should-have-trailing-dot"))]
                 return Ok(Self(CString::default()));
             }
             Some(&b'.') => {
@@ -193,18 +206,18 @@ impl FromStr for FQDN
                 if s.len() == 1 {
                     return Ok(Self(CString::default()));
                 }
-                &s[..s.len()-1]
+                &s[..s.len() - 1]
             }
             _ => {
-                #[cfg(feature="domain-name-should-have-trailing-dot")]
+                #[cfg(feature = "domain-name-should-have-trailing-dot")]
                 return Err(Error::TrailingDotMissing);
-                #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
+                #[cfg(not(feature = "domain-name-should-have-trailing-dot"))]
                 s // no trailing dot to remove
             }
         };
 
         // check against 253 since we have the trailing char and the first label length to consider
-        #[cfg(feature="domain-name-length-limited-to-255")]
+        #[cfg(feature = "domain-name-length-limited-to-255")]
         if toparse.len() > 253 {
             return Err(Error::TooLongDomainName);
         }
@@ -212,14 +225,13 @@ impl FromStr for FQDN
         // now, check each FQDN subpart and concatenate them
         toparse
             .split(|&c| c == b'.')
-            .try_fold(Vec::with_capacity(s.len()+1),
-            |mut bytes, label|
-                match label.len() {
-
-                    #[cfg(feature="domain-label-length-limited-to-63")]
+            .try_fold(
+                Vec::with_capacity(s.len() + 1),
+                |mut bytes, label| match label.len() {
+                    #[cfg(feature = "domain-label-length-limited-to-63")]
                     l if l > 63 => Err(Error::TooLongLabel),
 
-                    #[cfg(not(feature="domain-label-length-limited-to-63"))]
+                    #[cfg(not(feature = "domain-label-length-limited-to-63"))]
                     l if l > 255 => Err(Error::TooLongLabel),
 
                     0 => Err(Error::EmptyLabel),
@@ -234,13 +246,12 @@ impl FromStr for FQDN
                         iter.try_for_each(|&c| {
                             bytes.push(check_and_lower_any_char(c)?);
                             Ok(())
-                        } )?;
+                        })?;
 
                         Ok(bytes)
                     }
-                })
-            .map(|bytes| {
-                Self(unsafe { CString::from_vec_unchecked(bytes)})
-            })
+                },
+            )
+            .map(|bytes| Self(unsafe { CString::from_vec_unchecked(bytes) }))
     }
 }

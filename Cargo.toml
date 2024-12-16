@@ -7,7 +7,7 @@ license = "MIT"
 description = "FQDN (Fully Qualified Domain Name)"
 repository = "https://github.com/Orange-OpenSource/fqdn"
 documentation = "https://docs.rs/fqdn"
-keywords = ["fqdn","dns"]
+keywords = ["fqdn", "dns"]
 categories = ["data-structures"]
 
 [dependencies]
@@ -16,12 +16,14 @@ punycode = { version = "0.4.1", optional = true }
 # Activate (de)serialization mechanism
 serde = { version = "1.0.215", features = ["std"], optional = true }
 
+[dev-dependencies]
+serde_json = { version = "1.0.133" }
 
 [features]
 # By default, this crate allows also underscores ('_') in FQDN
 # and has greater length limits than the RFC allows but
 # domain labels can’t start or end with hyphens
-default = [ "domain-label-cannot-start-or-end-with-hyphen" ]
+default = ["domain-label-cannot-start-or-end-with-hyphen"]
 
 # Activate all the features to conform to all RFC
 # RFC1035 accepts only digits, letters and '-' in FQDN, labels are 1 to 63 chars long,
@@ -33,7 +35,7 @@ strict-rfc = [
     "domain-name-length-limited-to-255",
     "domain-name-without-special-chars",
     "domain-name-should-have-trailing-dot",
-    "domain-label-cannot-start-or-end-with-hyphen"
+    "domain-label-cannot-start-or-end-with-hyphen",
 ]
 
 domain-name-length-limited-to-255 = []
@@ -41,4 +43,3 @@ domain-label-length-limited-to-63 = []
 domain-name-without-special-chars = []
 domain-name-should-have-trailing-dot = []
 domain-label-cannot-start-or-end-with-hyphen = []
-

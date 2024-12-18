@@ -1,6 +1,6 @@
 [package]
 name = "fqdn"
-version = "0.4.3"
+version = "0.4.4"
 authors = ["Xophe <christophe.dousson@orange.com>"]
 edition = "2021"
 license = "MIT"
@@ -18,6 +18,7 @@ serde = { version = "1.0.215", features = ["std"], optional = true }
 
 [dev-dependencies]
 serde_json = "1.0.133"
+postcard = { version = "1.1.1", features = [ "use-std" ] }
 serde = { version = "1.0", features = ["derive"] }
 
 

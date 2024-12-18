@@ -23,28 +23,10 @@ use crate::check::*;
 #[derive(Debug,Clone,Default,Hash,PartialEq,Eq,PartialOrd,Ord)]
 pub struct FQDN(pub(crate) CString);
 
-#[cfg(feature = "serde")]
-impl serde::Serialize for FQDN {
-    #[inline]
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.0.serialize(serializer)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for FQDN {
-    #[inline]
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        CString::deserialize(deserializer).map(Self)
-    }
-}
-
 impl FQDN {
 
-    pub fn new<V:Into<Vec<u8>>>(bytes:V) -> Result<Self,Error>
+    pub fn from_vec(mut bytes: Vec<u8>) -> Result<Self,Error>
     {
-        let mut bytes = bytes.into();
-
         // add a trailing 0 if not present
         if bytes.last() != Some(&0) {
             bytes.push(0);
@@ -104,6 +86,79 @@ impl FQDN {
     {
         FQDN(CString::from_vec_with_nul_unchecked(v))
     }
+
+    /// Creates a FQDN from a ascii string.
+    ///
+    /// Successive FQDN labels are separate by a dot ('.')
+    /// and all the used characters should be compliant with
+    /// the RFC.
+    pub fn from_ascii_str(s: &str) -> Result<Self,Error>
+    {
+        // check the trailing dot and remove it
+        // (the empty FQDN '.' is also managed here)
+        let s = s.as_bytes();
+        let toparse =  match s.last() {
+            None => {
+                #[cfg(feature="domain-name-should-have-trailing-dot")]
+                return Err(Error::TrailingDotMissing);
+                #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
+                return Ok(Self(CString::default()));
+            }
+            Some(&b'.') => {
+                // ok, there is a trailing dot
+                if s.len() == 1 {
+                    return Ok(Self(CString::default()));
+                }
+                &s[..s.len()-1]
+            }
+            _ => {
+                #[cfg(feature="domain-name-should-have-trailing-dot")]
+                return Err(Error::TrailingDotMissing);
+                #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
+                s // no trailing dot to remove
+            }
+        };
+
+        // check against 253 since we have the trailing char and the first label length to consider
+        #[cfg(feature="domain-name-length-limited-to-255")]
+        if toparse.len() > 253 {
+            return Err(Error::TooLongDomainName);
+        }
+
+        // now, check each FQDN subpart and concatenate them
+        toparse
+            .split(|&c| c == b'.')
+            .try_fold(Vec::with_capacity(s.len()+1),
+                      |mut bytes, label|
+                          match label.len() {
+
+                              #[cfg(feature="domain-label-length-limited-to-63")]
+                              l if l > 63 => Err(Error::TooLongLabel),
+
+                              #[cfg(not(feature="domain-label-length-limited-to-63"))]
+                              l if l > 255 => Err(Error::TooLongLabel),
+
+                              0 => Err(Error::EmptyLabel),
+
+                              l => {
+                                  let mut iter = label.iter();
+
+                                  // first, prepend the label length
+                                  bytes.push(l as u8);
+
+                                  // check and push all the other characters...
+                                  iter.try_for_each(|&c| {
+                                      bytes.push(check_and_lower_any_char(c)?);
+                                      Ok(())
+                                  } )?;
+
+                                  Ok(bytes)
+                              }
+                          })
+            .map(|bytes| {
+                Self(unsafe { CString::from_vec_unchecked(bytes)})
+            })
+    }
 }
 
 
@@ -143,9 +198,17 @@ impl TryFrom<CString> for FQDN
 {
     type Error = Error;
 
-    #[inline]
-    fn try_from(bytes: CString) -> Result<FQDN, Self::Error> {
-        Self::new(bytes.into_bytes_with_nul())
+    fn try_from(bytes: CString) -> Result<FQDN, Self::Error>
+    {
+        let mut bytes = bytes.into_bytes_with_nul();
+        if check_byte_sequence(bytes.as_ref()).is_ok() {
+            Ok(unsafe { Self::from_vec_with_nul_unchecked(bytes) })
+        } else {
+            bytes.pop(); // pop the trailing nul terminator
+            std::str::from_utf8(&bytes)
+                .map_err(|_| Error::InvalidLabelChar)
+                .and_then(FQDN::from_str)
+        }
     }
 }
 
@@ -156,7 +219,7 @@ impl TryFrom<Vec<u8>> for FQDN
 
     #[inline]
     fn try_from(bytes: Vec<u8>) -> Result<FQDN, Self::Error> {
-        Self::new(bytes)
+        Self::from_vec(bytes)
     }
 }
 
@@ -176,71 +239,29 @@ impl FromStr for FQDN
 {
     type Err = Error;
 
+    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err>
     {
-        // check the trailing dot and remove it
-        // (the empty FQDN '.' is also managed here)
-        let s = s.as_bytes();
-        let toparse =  match s.last() {
-            None => {
-                #[cfg(feature="domain-name-should-have-trailing-dot")]
-                return Err(Error::TrailingDotMissing);
-                #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
-                return Ok(Self(CString::default()));
-            }
-            Some(&b'.') => {
-                // ok, there is a trailing dot
-                if s.len() == 1 {
-                    return Ok(Self(CString::default()));
-                }
-                &s[..s.len()-1]
-            }
-            _ => {
-                #[cfg(feature="domain-name-should-have-trailing-dot")]
-                return Err(Error::TrailingDotMissing);
-                #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
-                s // no trailing dot to remove
-            }
-        };
+        #[cfg(feature="punycode")] { Self::punyencode(s) }
+        #[cfg(not(feature="punycode"))] { Self::from_ascii_str(s) }
 
-        // check against 253 since we have the trailing char and the first label length to consider
-        #[cfg(feature="domain-name-length-limited-to-255")]
-        if toparse.len() > 253 {
-            return Err(Error::TooLongDomainName);
-        }
+    }
+}
 
-        // now, check each FQDN subpart and concatenate them
-        toparse
-            .split(|&c| c == b'.')
-            .try_fold(Vec::with_capacity(s.len()+1),
-            |mut bytes, label|
-                match label.len() {
 
-                    #[cfg(feature="domain-label-length-limited-to-63")]
-                    l if l > 63 => Err(Error::TooLongLabel),
+#[cfg(feature = "serde")]
+impl serde::Serialize for FQDN {
+    #[inline]
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
 
-                    #[cfg(not(feature="domain-label-length-limited-to-63"))]
-                    l if l > 255 => Err(Error::TooLongLabel),
-
-                    0 => Err(Error::EmptyLabel),
-
-                    l => {
-                        let mut iter = label.iter();
-
-                        // first, prepend the label length
-                        bytes.push(l as u8);
-
-                        // check and push all the other characters...
-                        iter.try_for_each(|&c| {
-                            bytes.push(check_and_lower_any_char(c)?);
-                            Ok(())
-                        } )?;
-
-                        Ok(bytes)
-                    }
-                })
-            .map(|bytes| {
-                Self(unsafe { CString::from_vec_unchecked(bytes)})
-            })
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for FQDN {
+    #[inline]
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            CString::deserialize(deserializer)
+                .and_then(|str| Self::try_from(str).map_err(serde::de::Error::custom))
     }
 }

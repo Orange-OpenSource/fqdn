@@ -38,6 +38,14 @@
 //! If this feature is activated, then parsing or printing a FQDN strictly apply this rule. By default,
 //! the parsing behavior is more lenient (i.e. the trailing dot could miss).
 //!
+//! ### `punycode`
+//! Allow the use of Unicode characters in FQDN. They are automatically encoded
+//! by using [Punycode](https://en.wikipedia.org/wiki/Punycode).
+//! When activated, the macro `fqdn!` implements the punycode, so do the trait `FromStr`
+//!
+//! ### `serde`
+//! Provide serialization and deseriatization for FQDN.
+//!
 //! # RFC related to FQDN
 //! The related RFC define some restrictions that are not activated by default.
 //! The feature `strict-rfc` activates all of them, which are:
@@ -90,8 +98,7 @@ macro_rules! fqdn {
                 b'.' => &str[..(penultimate+1)],
                 _ => &str
             };
-            #[cfg(feature="punycode")] { $crate::FQDN::punyencode(str).unwrap() }
-            #[cfg(not(feature="punycode"))] { str.parse::<$crate::FQDN>().unwrap() }
+            str.parse::<$crate::FQDN>().unwrap()
         }
     }}
 }
@@ -177,11 +184,11 @@ mod tests {
         assert_eq!( fqdn.tld().unwrap().as_bytes(), b"\x03com\x00");
         assert_eq!( &fqdn.as_bytes()[fqdn.as_bytes().len() - 5..], b"\x03com\x00");
 
-        assert_eq!( Ok(FQDN::default()), FQDN::new(vec![]) );
+        assert_eq!( Ok(FQDN::default()), FQDN::from_vec(vec![]) );
 
-        assert_eq!( Err(Error::InvalidStructure), FQDN::new(vec![1]) );
-        assert_eq!( Ok(fqdn!("a.fr")), FQDN::new(vec![1, b'a', 2, b'f', b'r']) );
-        assert_eq!( Ok(fqdn!("a.fr")), FQDN::new(vec![1, b'a', 2, b'f', b'r', 0]) );
+        assert_eq!( Err(Error::InvalidStructure), FQDN::from_vec(vec![1]) );
+        assert_eq!( Ok(fqdn!("a.fr")), FQDN::from_vec(vec![1, b'a', 2, b'f', b'r']) );
+        assert_eq!( Ok(fqdn!("a.fr")), FQDN::from_vec(vec![1, b'a', 2, b'f', b'r', 0]) );
     }
 
     #[test]
@@ -196,10 +203,10 @@ mod tests {
             assert_eq!(fqdnref.to_string(), "github.com");
         }
 
-        let fqdn = FQDN::new(b"\x06GitHUB\x03com\x00".to_vec()).unwrap();
+        let fqdn = FQDN::from_vec(b"\x06GitHUB\x03com\x00".to_vec()).unwrap();
         assert_eq!( fqdn, *fqdnref);
 
-        let fqdn = FQDN::new(b"\x06GitHUB\x03com".to_vec()).unwrap();
+        let fqdn = FQDN::from_vec(b"\x06GitHUB\x03com".to_vec()).unwrap();
         assert_eq!( fqdn, *fqdnref);
     }
 

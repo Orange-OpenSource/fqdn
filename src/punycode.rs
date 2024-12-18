@@ -6,6 +6,12 @@ impl FQDN {
 
     pub fn punyencode<S: AsRef<str>>(fqdn: S) -> Result<Self, Error>
     {
+        #[cfg(feature = "domain-name-should-have-trailing-dot")] {
+            if fqdn.as_ref().chars().last() != Some('.') {
+                return Err(Error::TrailingDotMissing);
+            }
+        }
+
         if fqdn.as_ref() == "." || (cfg!(not(feature="domain-name-should-have-trailing-dot")) && fqdn.as_ref().is_empty()) {
             Ok(Self::default())
         } else if fqdn.as_ref().starts_with('.') || fqdn.as_ref().contains("..") {
@@ -43,7 +49,8 @@ impl Fqdn {
 
     pub fn punydecode(&self) -> String
     {
-        let fqdn = self.labels()
+        #[allow(unused_mut)] // should be mut for following pop when feature is activated
+        let mut fqdn = self.labels()
             .fold(String::with_capacity(self.as_bytes().len()),
                   |mut acc, label| {
                       if label.starts_with("xn--") {
@@ -72,6 +79,7 @@ mod tests {
        let fqdn = fqdn!("www.académie-Française.fr");
         assert_eq!(fqdn, fqdn!("www.xn--acadmie-franaise-npb1a.fr"));
 
+        #[cfg(not(feature = "domain-name-should-have-trailing-dot"))]
         assert_eq!(FQDN::punyencode("www.académie-française.fr").unwrap(), fqdn);
 
         #[cfg(not(feature = "domain-name-should-have-trailing-dot"))]

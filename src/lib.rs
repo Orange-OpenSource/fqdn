@@ -291,5 +291,13 @@ mod tests {
 
         assert_eq!(ordered.len(), unordered.len());
     }
+
+    #[test]
+    #[cfg(not(feature="domain-name-without-special-chars"))]
+    fn special_chars()
+    {
+        assert!("git_hub.com.".parse::<FQDN>().is_ok());
+        assert!("git#hub.com.".parse::<FQDN>().is_ok());
+    }
 }
 

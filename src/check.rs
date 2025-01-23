@@ -155,7 +155,7 @@ fn check_any_char(c: u8) -> Result<u8,Error>
     match c {
         b'a'..=b'z' | b'-' | b'0'..=b'9' => Ok(c),
         #[cfg(not(feature="domain-name-without-special-chars"))]
-        b'_'=> Ok(c),
+        b'_' | b'#' => Ok(c),
         _ => Err(Error::InvalidLabelChar),
     }
 }
@@ -168,7 +168,7 @@ pub(crate) fn check_and_lower_any_char(c: u8) -> Result<u8,Error>
     match c {
         b'a'..=b'z' | b'-' | b'0'..=b'9' => Ok(c),
         #[cfg(not(feature="domain-name-without-special-chars"))]
-        b'_'=> Ok(c),
+        b'_' | b'#' => Ok(c),
         b'A'..=b'Z' => Ok(c | ASCII_CASE_MASK), // to lowercase
         _ => Err(Error::InvalidLabelChar),
     }

@@ -87,9 +87,9 @@ impl FQDN {
         FQDN(CString::from_vec_with_nul_unchecked(v))
     }
 
-    /// Creates a FQDN from a ascii string.
+    /// Creates a FQDN from an ascii string.
     ///
-    /// Successive FQDN labels are separate by a dot ('.')
+    /// Successive FQDN labels are supposed to be separated by a dot ('.')
     /// and all the used characters should be compliant with
     /// the RFC.
     pub fn from_ascii_str(s: &str) -> Result<Self,Error>
@@ -200,7 +200,7 @@ impl TryFrom<CString> for FQDN
 
     fn try_from(bytes: CString) -> Result<FQDN, Self::Error>
     {
-        let mut bytes = bytes.into_bytes_with_nul();
+        let mut bytes = bytes.into_bytes_with_nul().to_ascii_lowercase();
         if check_byte_sequence(bytes.as_ref()).is_ok() {
             Ok(unsafe { Self::from_vec_with_nul_unchecked(bytes) })
         } else {

@@ -3,13 +3,11 @@ use std::ffi::{CStr, CString};
 use std::fmt;
 use std::fmt::Formatter;
 
-use std::borrow::Borrow;
-use std::str::FromStr;
-use std::hash::Hash;
-
-use crate::*;
 use crate::check::*;
-
+use crate::*;
+use std::borrow::Borrow;
+use std::hash::Hash;
+use std::str::FromStr;
 
 /// A FQDN string.
 ///
@@ -20,13 +18,11 @@ use crate::check::*;
 ///
 /// [`FQDN`] is to [`&Fqdn`](`crate::Fqdn`) as [`String`] is to [`&str`]: the former
 /// in each pair are owned data; the latter are borrowed references.
-#[derive(Debug,Clone,Default,Hash,PartialEq,Eq,PartialOrd,Ord)]
+#[derive(Debug, Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FQDN(pub(crate) CString);
 
 impl FQDN {
-
-    pub fn from_vec(mut bytes: Vec<u8>) -> Result<Self,Error>
-    {
+    pub fn from_vec(mut bytes: Vec<u8>) -> Result<Self, Error> {
         // add a trailing 0 if not present
         if bytes.last() != Some(&0) {
             bytes.push(0);
@@ -34,13 +30,13 @@ impl FQDN {
 
         // check against 254 since we have the trailing char and the first label length to consider
         // (the trailing null bytes is supposet to be there)
-        #[cfg(feature="domain-name-length-limited-to-255")]
+        #[cfg(feature = "domain-name-length-limited-to-255")]
         if bytes.len() > 254 {
             return Err(Error::TooLongDomainName);
         }
 
         // now, check each FQDN subpart (excluding the last nul char)
-        let tochecklen = bytes.len()-1;
+        let tochecklen = bytes.len() - 1;
         let mut tocheck = &mut bytes[..tochecklen];
         while !tocheck.is_empty() {
             match tocheck[0] as usize {
@@ -48,7 +44,7 @@ impl FQDN {
                     return Err(Error::InvalidStructure);
                 }
 
-                #[cfg(feature="domain-label-length-limited-to-63")]
+                #[cfg(feature = "domain-label-length-limited-to-63")]
                 l if l > 63 => {
                     return Err(Error::TooLongLabel);
                 }
@@ -64,13 +60,13 @@ impl FQDN {
                         .take(l) // only process the current label
                         .try_for_each(|c| {
                             *c = check_and_lower_any_char(*c)?;
-                            Ok::<(),Error>(())
+                            Ok::<(), Error>(())
                         })?;
-                    tocheck = &mut tocheck[l+1..];
+                    tocheck = &mut tocheck[l + 1..];
                 }
             }
         }
-        Ok(unsafe { Self::from_vec_with_nul_unchecked(bytes)})
+        Ok(unsafe { Self::from_vec_with_nul_unchecked(bytes) })
     }
 
     /// Creates a FQDN from a vector of bytes without any checking
@@ -82,8 +78,7 @@ impl FQDN {
     /// * the label length is too high, or
     /// * the total length is too high, or
     /// * a not allowed character is used
-    unsafe fn from_vec_with_nul_unchecked(v: Vec<u8>) -> Self
-    {
+    unsafe fn from_vec_with_nul_unchecked(v: Vec<u8>) -> Self {
         FQDN(CString::from_vec_with_nul_unchecked(v))
     }
 
@@ -92,16 +87,15 @@ impl FQDN {
     /// Successive FQDN labels are supposed to be separated by a dot ('.')
     /// and all the used characters should be compliant with
     /// the RFC.
-    pub fn from_ascii_str(s: &str) -> Result<Self,Error>
-    {
+    pub fn from_ascii_str(s: &str) -> Result<Self, Error> {
         // check the trailing dot and remove it
         // (the empty FQDN '.' is also managed here)
         let s = s.as_bytes();
-        let toparse =  match s.last() {
+        let toparse = match s.last() {
             None => {
-                #[cfg(feature="domain-name-should-have-trailing-dot")]
+                #[cfg(feature = "domain-name-should-have-trailing-dot")]
                 return Err(Error::TrailingDotMissing);
-                #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
+                #[cfg(not(feature = "domain-name-should-have-trailing-dot"))]
                 return Ok(Self(CString::default()));
             }
             Some(&b'.') => {
@@ -109,18 +103,18 @@ impl FQDN {
                 if s.len() == 1 {
                     return Ok(Self(CString::default()));
                 }
-                &s[..s.len()-1]
+                &s[..s.len() - 1]
             }
             _ => {
-                #[cfg(feature="domain-name-should-have-trailing-dot")]
+                #[cfg(feature = "domain-name-should-have-trailing-dot")]
                 return Err(Error::TrailingDotMissing);
-                #[cfg(not(feature="domain-name-should-have-trailing-dot"))]
+                #[cfg(not(feature = "domain-name-should-have-trailing-dot"))]
                 s // no trailing dot to remove
             }
         };
 
         // check against 253 since we have the trailing char and the first label length to consider
-        #[cfg(feature="domain-name-length-limited-to-255")]
+        #[cfg(feature = "domain-name-length-limited-to-255")]
         if toparse.len() > 253 {
             return Err(Error::TooLongDomainName);
         }
@@ -128,42 +122,52 @@ impl FQDN {
         // now, check each FQDN subpart and concatenate them
         toparse
             .split(|&c| c == b'.')
-            .try_fold(Vec::with_capacity(s.len()+1),
-                      |mut bytes, label|
-                          match label.len() {
+            .try_fold(
+                Vec::with_capacity(s.len() + 1),
+                |mut bytes, label| match label.len() {
+                    #[cfg(feature = "domain-label-length-limited-to-63")]
+                    l if l > 63 => Err(Error::TooLongLabel),
 
-                              #[cfg(feature="domain-label-length-limited-to-63")]
-                              l if l > 63 => Err(Error::TooLongLabel),
+                    #[cfg(not(feature = "domain-label-length-limited-to-63"))]
+                    l if l > 255 => Err(Error::TooLongLabel),
 
-                              #[cfg(not(feature="domain-label-length-limited-to-63"))]
-                              l if l > 255 => Err(Error::TooLongLabel),
+                    0 => Err(Error::EmptyLabel),
 
-                              0 => Err(Error::EmptyLabel),
+                    l => {
+                        let mut iter = label.iter();
 
-                              l => {
-                                  let mut iter = label.iter();
+                        // first, prepend the label length
+                        bytes.push(l as u8);
 
-                                  // first, prepend the label length
-                                  bytes.push(l as u8);
-
-                                  // check and push all the other characters...
-                                  iter.try_for_each(|&c| {
-                                      bytes.push(check_and_lower_any_char(c)?);
-                                      Ok(())
-                                  } )?;
-
-                                  Ok(bytes)
-                              }
-                          })
-            .map(|bytes| {
-                Self(unsafe { CString::from_vec_unchecked(bytes)})
-            })
+                        #[cfg(feature = "domain-label-cannot-start-or-end-with-hyphen")]
+                        {
+                            let first = check_and_lower_any_char(*iter.next().unwrap())?;
+                            if first == '-' as u8 {
+                                return Err(Error::LabelCannotStartWithHyphen);
+                            } else {
+                                bytes.push(first);
+                            }
+                        }
+                        // check and push all the other characters...
+                        iter.try_for_each(|&c| {
+                            bytes.push(check_and_lower_any_char(c)?);
+                            Ok(())
+                        })?;
+                        #[cfg(feature = "domain-label-cannot-start-or-end-with-hyphen")]
+                        {
+                            if *bytes.last().unwrap() == '-' as u8 {
+                                return Err(Error::LabelCannotEndWithHyphen);
+                            }
+                        }
+                        Ok(bytes)
+                    }
+                },
+            )
+            .map(|bytes| Self(unsafe { CString::from_vec_unchecked(bytes) }))
     }
 }
 
-
-impl AsRef<Fqdn> for FQDN
-{
+impl AsRef<Fqdn> for FQDN {
     #[inline]
     fn as_ref(&self) -> &Fqdn {
         // SAFE because Fqdn is just a wrapper around CStr
@@ -171,50 +175,55 @@ impl AsRef<Fqdn> for FQDN
     }
 }
 
-impl ops::Deref for FQDN
-{
+impl ops::Deref for FQDN {
     type Target = Fqdn;
     #[inline]
-    fn deref(&self) -> &Self::Target { self.as_ref() }
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
 }
 
-
-impl From<&Fqdn> for FQDN
-{
+impl From<&Fqdn> for FQDN {
     #[inline]
-    fn from(s: &Fqdn) -> FQDN { FQDN(s.0.into()) }
+    fn from(s: &Fqdn) -> FQDN {
+        FQDN(s.0.into())
+    }
 }
 
-impl From<Box<Fqdn>> for FQDN
-{
+impl From<Box<Fqdn>> for FQDN {
     #[inline]
     fn from(s: Box<Fqdn>) -> FQDN {
-        let cstr : Box<CStr> = unsafe { std::mem::transmute(s) };
+        let cstr: Box<CStr> = unsafe { std::mem::transmute(s) };
         FQDN(cstr.into())
     }
 }
 
-impl TryFrom<CString> for FQDN
-{
+impl TryFrom<CString> for FQDN {
     type Error = Error;
 
-    fn try_from(bytes: CString) -> Result<FQDN, Self::Error>
-    {
+    fn try_from(bytes: CString) -> Result<FQDN, Self::Error> {
         let mut bytes = bytes.into_bytes_with_nul().to_ascii_lowercase();
-        if check_byte_sequence(bytes.as_ref()).is_ok() {
-            Ok(unsafe { Self::from_vec_with_nul_unchecked(bytes) })
-        } else {
-            bytes.pop(); // pop the trailing nul terminator
-            std::str::from_utf8(&bytes)
-                .map_err(|_| Error::InvalidLabelChar)
-                .and_then(FQDN::from_str)
+        // first we want to know if this in a fqdn in human readable format
+        // or if it is in binary format (to choose the good parsing)
+        let mut current = 0;
+        while current < bytes.len() {
+            let len = *unsafe { bytes.get_unchecked(current) };
+            if len == 0 {
+                // probably correct FQDN structure
+                return check_byte_sequence(bytes.as_ref())
+                    .map(|_| unsafe { Self::from_vec_with_nul_unchecked(bytes) });
+            }
+            current += 1 + len as usize;
         }
+        // invalid structure, try to parse the FQDN
+        bytes.pop(); // pop the trailing nul terminator
+        std::str::from_utf8(&bytes)
+            .map_err(|_| Error::InvalidLabelChar)
+            .and_then(FQDN::from_str)
     }
 }
 
-
-impl TryFrom<Vec<u8>> for FQDN
-{
+impl TryFrom<Vec<u8>> for FQDN {
     type Error = Error;
 
     #[inline]
@@ -223,31 +232,35 @@ impl TryFrom<Vec<u8>> for FQDN
     }
 }
 
-
 impl Borrow<Fqdn> for FQDN {
     #[inline]
-    fn borrow(&self) -> &Fqdn { self.as_ref() }
-}
-
-impl fmt::Display for FQDN
-{
-    #[inline]
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result { self.as_ref().fmt(f) }
-}
-
-impl FromStr for FQDN
-{
-    type Err = Error;
-
-    #[inline]
-    fn from_str(s: &str) -> Result<Self, Self::Err>
-    {
-        #[cfg(feature="punycode")] { Self::punyencode(s) }
-        #[cfg(not(feature="punycode"))] { Self::from_ascii_str(s) }
-
+    fn borrow(&self) -> &Fqdn {
+        self.as_ref()
     }
 }
 
+impl fmt::Display for FQDN {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.as_ref().fmt(f)
+    }
+}
+
+impl FromStr for FQDN {
+    type Err = Error;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        #[cfg(feature = "punycode")]
+        {
+            Self::punyencode(s)
+        }
+        #[cfg(not(feature = "punycode"))]
+        {
+            Self::from_ascii_str(s)
+        }
+    }
+}
 
 #[cfg(feature = "serde")]
 impl serde::Serialize for FQDN {
@@ -261,7 +274,7 @@ impl serde::Serialize for FQDN {
 impl<'de> serde::Deserialize<'de> for FQDN {
     #[inline]
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-            CString::deserialize(deserializer)
-                .and_then(|str| Self::try_from(str).map_err(serde::de::Error::custom))
+        CString::deserialize(deserializer)
+            .and_then(|str| Self::try_from(str).map_err(serde::de::Error::custom))
     }
 }

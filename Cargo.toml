@@ -1,6 +1,6 @@
 [package]
 name = "fqdn"
-version = "0.4.7"
+version = "0.5.0"
 authors = ["Xophe <christophe.dousson@orange.com>"]
 edition = "2021"
 license = "MIT"
@@ -23,11 +23,6 @@ serde = { version = "1.0.219", features = ["derive"] }
 
 
 [features]
-# By default, this crate allows also underscores ('_') in FQDN
-# and has greater length limits than the RFC allows but
-# domain labels can’t start or end with hyphens
-default = [ "domain-label-cannot-start-or-end-with-hyphen" ]
-
 # Activate all the features to conform to all RFC
 # RFC1035 accepts only digits, letters and '-' in FQDN, labels are 1 to 63 chars long,
 #         max length of FQDN including null label is 255 chars (i.e. 253 visible chars)

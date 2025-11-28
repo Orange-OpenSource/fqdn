@@ -23,6 +23,6 @@ but each of them could be activated independently of the others:
 - labels should only contain letters, digits and hyphens (`domain-name-without-special-chars`)
 - FQDN should end with a period (`domain-name-should-have-trailing-dot`): notice that activating this feature
 modifies the behaviour of `Display` which adds a period at the end of the FQDN.
-
-The only feature activated by default is the following:
 - label could not start or end by hyphen (`domain-label-cannot-start-or-end-with-hyphen`)
+
+**IMPORTANT**: Since 0.5, the feature `domain-label-cannot-start-or-end-with-hyphen` is _no longer activated by default_.

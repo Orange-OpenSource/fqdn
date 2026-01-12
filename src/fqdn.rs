@@ -250,6 +250,6 @@ impl<'de> serde::Deserialize<'de> for FQDN {
     #[inline]
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         String::deserialize(deserializer)
-            .and_then(|str| Self::from_ascii_str(&str).map_err(serde::de::Error::custom))
+            .and_then(|str| Self::from_str(&str).map_err(serde::de::Error::custom))
     }
 }

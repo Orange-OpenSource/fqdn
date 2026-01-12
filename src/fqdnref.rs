@@ -17,7 +17,7 @@ pub struct Fqdn(pub(crate) CStr);
 impl serde::Serialize for Fqdn {
     #[inline]
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.0.serialize(serializer)
+        self.to_string().serialize(serializer)
     }
 }
 

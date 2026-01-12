@@ -198,31 +198,6 @@ impl From<Box<Fqdn>> for FQDN {
     }
 }
 
-impl TryFrom<CString> for FQDN {
-    type Error = Error;
-
-    fn try_from(bytes: CString) -> Result<FQDN, Self::Error> {
-        let mut bytes = bytes.into_bytes_with_nul().to_ascii_lowercase();
-        // first we want to know if this in a fqdn in human readable format
-        // or if it is in binary format (to choose the good parsing)
-        let mut current = 0;
-        while current < bytes.len() {
-            let len = *unsafe { bytes.get_unchecked(current) };
-            if len == 0 {
-                // probably correct FQDN structure
-                return check_byte_sequence(bytes.as_ref())
-                    .map(|_| unsafe { Self::from_vec_with_nul_unchecked(bytes) });
-            }
-            current += 1 + len as usize;
-        }
-        // invalid structure, try to parse the FQDN
-        bytes.pop(); // pop the trailing nul terminator
-        std::str::from_utf8(&bytes)
-            .map_err(|_| Error::InvalidLabelChar)
-            .and_then(FQDN::from_str)
-    }
-}
-
 impl TryFrom<Vec<u8>> for FQDN {
     type Error = Error;
 
@@ -266,7 +241,7 @@ impl FromStr for FQDN {
 impl serde::Serialize for FQDN {
     #[inline]
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.0.serialize(serializer)
+        self.to_string().serialize(serializer)
     }
 }
 
@@ -274,7 +249,7 @@ impl serde::Serialize for FQDN {
 impl<'de> serde::Deserialize<'de> for FQDN {
     #[inline]
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        CString::deserialize(deserializer)
-            .and_then(|str| Self::try_from(str).map_err(serde::de::Error::custom))
+        String::deserialize(deserializer)
+            .and_then(|str| Self::from_ascii_str(&str).map_err(serde::de::Error::custom))
     }
 }
